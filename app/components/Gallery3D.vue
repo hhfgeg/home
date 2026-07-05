@@ -1,32 +1,44 @@
 <template>
   <div class="gallery-3d-wrapper" ref="wrapperRef">
     <!-- HUD overlay -->
-    <div class="gallery-hud" v-if="isLocked">
-      <div class="hud-controls-hint">
+    <div class="gallery-hud" v-if="entered">
+      <!-- Focus mode hint -->
+      <div class="hud-controls-hint" v-if="focused">
+        <span class="hud-icon">🔍</span>
+        <span class="hud-text">正在查看：</span>
+        <span class="hud-focus-name">{{ focusedWorkName }}</span>
+        <span class="hud-sep">·</span>
+        <span class="hud-text">点击任意处或 ESC 返回</span>
+      </div>
+      <!-- Normal controls -->
+      <div class="hud-controls-hint" v-else>
         <span class="hud-key">W</span><span class="hud-key">A</span><span class="hud-key">S</span><span class="hud-key">D</span>
         <span class="hud-text">移动</span>
-        <span class="hud-sep">|</span>
+        <span class="hud-sep">·</span>
+        <span class="hud-icon">👆</span>
+        <span class="hud-text">点击地面</span>
+        <span class="hud-sep">·</span>
         <span class="hud-icon">🖱</span>
-        <span class="hud-text">视角</span>
-        <span class="hud-sep">|</span>
-        <span class="hud-text">🖱 点击作品</span>
-        <span class="hud-sep">|</span>
-        <span class="hud-text">ESC 退出</span>
+        <span class="hud-text">右键旋转</span>
+        <span class="hud-sep">·</span>
+        <span class="hud-text">作品聚焦</span>
       </div>
     </div>
 
-    <!-- Entry overlay for non-locked state -->
-    <div class="gallery-entry" v-if="!isLocked" @click="enterGallery">
-      <div class="entry-content">
-        <div class="entry-icon">🏛️</div>
-        <h2 class="entry-title">云中书作品廊</h2>
-        <p class="entry-subtitle">点击进入3D画廊空间</p>
-        <div class="entry-hint">
-          <span class="hint-icon">🖱</span>
-          <span>点击进入 · 鼠标移动视角 · WASD移动 · 点击作品查看详情</span>
+    <!-- Entry overlay -->
+    <Transition name="entry-fade">
+      <div class="gallery-entry" v-if="!entered" @click="doEnter">
+        <div class="entry-content">
+          <div class="entry-icon">🏛️</div>
+          <h2 class="entry-title">云中书作品廊</h2>
+          <p class="entry-subtitle">点击进入3D画廊空间</p>
+          <div class="entry-hint">
+            <span class="hint-icon">👆</span>
+            <span>WASD移动 · 点击地面移动 · 右键拖拽旋转 · 滚轮缩放 · 点击作品查看</span>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
     <!-- Canvas container -->
     <div class="gallery-canvas" ref="canvasRef"></div>
@@ -43,37 +55,49 @@ const props = defineProps<{
   signatures: SignatureItem[]
 }>()
 
-const emit = defineEmits<{
-  'work-click': [work: WorkItem]
-}>()
-
 const wrapperRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLElement | null>(null)
-const isLocked = ref(false)
+const entered = ref(false)
+const focused = ref(false)
+const focusedWorkName = ref('')
 
 let galleryCleanup: (() => void) | null = null
+let galleryEnterFn: (() => void) | null = null
+let checkFocus: (() => boolean) | null = null
+let getFocusedWork: (() => WorkItem | null) | null = null
 
-function enterGallery() {
-  const threeCanvas = canvasRef.value?.querySelector('canvas')
-  if (threeCanvas) {
-    threeCanvas.requestPointerLock()
-  }
+// Poll focus state for HUD updates
+let focusInterval: ReturnType<typeof setInterval> | null = null
+
+function doEnter() {
+  entered.value = true
+  galleryEnterFn?.()
 }
 
 function initGallery() {
-  const { init, cleanup, addSignatureToWall } = useGallery3D(
+  const { init, cleanup, addSignatureToWall, enterGallery, isFocused: getIsFocused, getFocusedWork: _getFocusedWork } = useGallery3D(
     canvasRef,
     props.works,
-    (work: WorkItem) => {
-      document.exitPointerLock()
-      emit('work-click', work)
-    },
+    () => {},  // no-op: focus handled internally
     ref(props.signatures)
   )
+  checkFocus = getIsFocused
+  getFocusedWork = _getFocusedWork
   galleryCleanup = cleanup
+  galleryEnterFn = enterGallery
   init()
 
-  // Watch for new signatures and add them to wall
+  // Poll focus state for HUD
+  focusInterval = setInterval(() => {
+    const f = checkFocus?.()
+    focused.value = !!f
+    if (f) {
+      const w = getFocusedWork?.()
+      focusedWorkName.value = w?.name ?? ''
+    }
+  }, 100)
+
+  // Watch for new signatures
   watch(
     () => props.signatures.length,
     (newLen, oldLen) => {
@@ -85,19 +109,6 @@ function initGallery() {
       }
     }
   )
-
-  // Monitor pointer lock state for HUD
-  function onPointerLockChange() {
-    isLocked.value = document.pointerLockElement === canvasRef.value?.querySelector('canvas')
-  }
-  document.addEventListener('pointerlockchange', onPointerLockChange)
-
-  // Store original cleanup to include removing our listener
-  const originalCleanup = galleryCleanup!
-  galleryCleanup = () => {
-    document.removeEventListener('pointerlockchange', onPointerLockChange)
-    originalCleanup()
-  }
 }
 
 onMounted(() => {
@@ -105,6 +116,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (focusInterval) clearInterval(focusInterval)
   if (galleryCleanup) {
     galleryCleanup()
   }
@@ -231,6 +243,15 @@ onUnmounted(() => {
 @keyframes gentlePulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.05); }
+}
+
+/* Entry transition */
+.entry-fade-leave-active {
+  transition: opacity 0.6s ease;
+}
+.entry-fade-leave-to {
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (max-width: 768px) {

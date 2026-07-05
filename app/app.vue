@@ -8,7 +8,6 @@
         <Gallery3D
           :works="worksData.works"
           :signatures="signatures"
-          @work-click="onWorkClick"
         />
       </section>
 
@@ -23,12 +22,6 @@
 
       <!-- Contact section -->
       <ContactSection />
-
-      <!-- Work detail modal -->
-      <WorkDetail
-        :work="selectedWork"
-        @close="selectedWork = null"
-      />
     </main>
 
     <footer class="app-footer">
@@ -44,21 +37,13 @@ import Gallery3D from '~/components/Gallery3D.vue'
 import AboutSection from '~/components/AboutSection.vue'
 import SignatureWall from '~/components/SignatureWall.vue'
 import ContactSection from '~/components/ContactSection.vue'
-import WorkDetail from '~/components/WorkDetail.vue'
-import type { WorkItem, SignatureItem } from '~/composables/useGallery3D'
+import type { SignatureItem } from '~/composables/useGallery3D'
 
 // Load works data
 import worksJson from '~/data/works.json'
 
 const worksData = worksJson
-
-// State
-const selectedWork = ref<WorkItem | null>(null)
 const signatures = ref<SignatureItem[]>(loadSignatures())
-
-function onWorkClick(work: WorkItem) {
-  selectedWork.value = work
-}
 
 function onAddSignature(sig: { name: string; comment: string; signatureDataUrl: string }) {
   const newSig: SignatureItem = {
