@@ -1,0 +1,89 @@
+{
+  "author": {
+    "penName": "云中书",
+    "realName": "",
+    "avatar": "",
+    "bio": "在AI与人类创造力的边界探索，用代码与文字构建通往未来的桥梁。致力于研究AI如何重塑创作方式，以及人机协作的无限可能。",
+    "tags": ["AI探索者", "创意工程师", "数字叙事者"],
+    "contact": {
+      "email": "yunzhongshu@example.com",
+      "github": "https://github.com/yunzhongshu",
+      "twitter": "https://twitter.com/yunzhongshu",
+      "website": "https://yunzhongshu.dev"
+    }
+  },
+  "works": [
+    {
+      "id": "neural-dreams",
+      "name": "神经梦境",
+      "summary": "使用扩散模型生成的超现实艺术系列，探索潜意识与AI视觉的交汇。",
+      "description": "《神经梦境》是一系列利用Stable Diffusion与自定义LoRA模型生成的艺术作品。作品通过对人类梦境描述的解析与再创作，展现了AI如何在潜意识的模糊边界中构建视觉叙事。每幅作品都经历了数百次迭代，是人机协作的完美案例。",
+      "link": "https://yunzhongshu.dev/neural-dreams",
+      "video": null,
+      "thumbnail": "neural",
+      "category": "AI艺术",
+      "tags": ["Stable Diffusion", "LoRA", "数字艺术", "超现实"],
+      "position": { "wall": 0, "index": 0 }
+    },
+    {
+      "id": "poetry-machine",
+      "name": "诗意机器",
+      "summary": "基于GPT架构的中文诗歌生成系统，探索传统韵律与现代AI的融合。",
+      "description": "《诗意机器》是一个结合了传统中文诗学规则与大型语言模型的创作系统。它不仅能够生成符合格律的古典诗词，更尝试在现代自由诗与古体诗之间寻找新的表达空间。项目开源了完整的训练流程与评估体系。",
+      "link": "https://yunzhongshu.dev/poetry-machine",
+      "video": null,
+      "thumbnail": "poetry",
+      "category": "AI文字",
+      "tags": ["LLM", "诗歌生成", "中文NLP", "创意写作"],
+      "position": { "wall": 0, "index": 1 }
+    },
+    {
+      "id": "code-canvas",
+      "name": "代码画布",
+      "summary": "AI辅助的生成式艺术平台，用代码绘制无限变化的数字画卷。",
+      "description": "《代码画布》是一个融合p5.js与AI算法的实时生成艺术平台。用户可以通过自然语言描述想要的视觉风格，AI会实时生成对应的程序化艺术作品。作品永远在变化，每一次观看都是独一无二的体验。",
+      "link": "https://yunzhongshu.dev/code-canvas",
+      "video": null,
+      "thumbnail": "code",
+      "category": "AI交互",
+      "tags": ["生成艺术", "p5.js", "实时渲染", "人机交互"],
+      "position": { "wall": 1, "index": 0 }
+    },
+    {
+      "id": "sound-of-silence",
+      "name": "寂静之声",
+      "summary": "AI音乐生成实验，从无声中创造旋律，探索声音的数学本质。",
+      "description": "《寂静之声》是一个探索AI音乐创作边界的实验项目。利用MusicGen与自定义的旋律生成管线，项目产出了多个风格迥异的音乐作品。从环境白噪声到复杂的交响编曲，展示了AI在音频领域的创造潜力。",
+      "link": "https://yunzhongshu.dev/sound-of-silence",
+      "video": null,
+      "thumbnail": "sound",
+      "category": "AI音乐",
+      "tags": ["音乐生成", "MusicGen", "音频处理", "算法作曲"],
+      "position": { "wall": 1, "index": 1 }
+    },
+    {
+      "id": "ai-companion",
+      "name": "创意伙伴",
+      "summary": "一个陪伴式AI创意助手，在灵感的荒野中点亮明灯。",
+      "description": "《创意伙伴》是一个专为创作者设计的AI助手系统。它不同于传统的问答式AI，而是采用主动创作建议、风格模仿与灵感激发等多模态交互方式。该项目探索了AI从工具转变为创作伙伴的可能性。",
+      "link": "https://yunzhongshu.dev/ai-companion",
+      "video": null,
+      "thumbnail": "companion",
+      "category": "AI应用",
+      "tags": ["对话AI", "创意工具", "多模态", "交互设计"],
+      "position": { "wall": 2, "index": 0 }
+    },
+    {
+      "id": "data-palace",
+      "name": "数据宫殿",
+      "summary": "将抽象数据转化为可探索的3D空间，让信息拥有建筑般的美感。",
+      "description": "《数据宫殿》是一个将大规模数据集映射到3D沉浸式空间的实验项目。通过Three.js构建的数据可视化宫殿，用户可以以第一人称视角\u201c漫步\u201d在数据之中，感受信息之美。每个数据点都是一块砖石，整体构成了宏伟的知识殿堂。",
+      "link": "https://yunzhongshu.dev/data-palace",
+      "video": null,
+      "thumbnail": "data",
+      "category": "AI可视化",
+      "tags": ["数据可视化", "Three.js", "3D交互", "信息设计"],
+      "position": { "wall": 2, "index": 1 }
+    }
+  ]
+}
