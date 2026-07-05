@@ -38,11 +38,19 @@ function getCardColor(index: number): number {
   return cardColors[index % cardColors.length]
 }
 
+export interface AuthorInfo {
+  penName: string
+  bio: string
+  tags: string[]
+  contact: { email?: string; github?: string; twitter?: string; website?: string }
+}
+
 export function useGallery3D(
   containerRef: Ref<HTMLElement | null>,
   works: WorkItem[],
   onWorkClick: (work: WorkItem) => void,
-  signatures: Ref<SignatureItem[]>
+  signatures: Ref<SignatureItem[]>,
+  author?: AuthorInfo
 ) {
   let scene: THREE.Scene
   let camera: THREE.PerspectiveCamera
@@ -73,6 +81,21 @@ export function useGallery3D(
   } | null
   let focusState: FocusState = null
   const FOCUS_SPEED = 2.5
+  const RESET_SPEED = 3.0
+
+  // Default camera state for reset
+  const defaultPosition = new THREE.Vector3(0, CAMERA_HEIGHT, ROOM_SIZE.depth / 2 - 1)
+  const defaultYaw = 0
+  const defaultPitch = 0
+  const defaultFov = 70
+
+  // Reset animation state
+  type ResetState = {
+    prevPosition: THREE.Vector3; prevYaw: number; prevPitch: number; prevFov: number
+    targetPos: THREE.Vector3; targetYaw: number; targetPitch: number; targetFov: number
+    progress: number
+  } | null
+  let resetState: ResetState = null
 
   const keys = { w: false, a: false, s: false, d: false }
   const moveDir = new THREE.Vector3()
@@ -118,6 +141,10 @@ export function useGallery3D(
     buildRoom()
     buildLighting()
     buildWorks(works)
+    if (author) buildAboutCard(author)
+    buildSignatureTitle()
+    // Load existing signatures
+    signatures.value.forEach(s => addSignatureToWall(s))
     buildMarker()
     setupEvents()
     animate()
@@ -233,18 +260,21 @@ export function useGallery3D(
     let x = 0, y = 0, z = 0, rotY = 0
 
     switch (wall) {
-      case 0: // Back wall
+      case 0: // Back wall — single row of 3
         z = -depth / 2 + hoverOffset
         x = -width / 3 + index * (width / 3)
+        y = 0
         break
-      case 1: // Left wall
+      case 1: // Left wall — single row, work at z=6 (about card at z=-6)
         x = -width / 2 + hoverOffset
-        z = -depth / 3 + index * (depth / 3)
+        z = 6  // right of about card
+        y = 0
         rotY = Math.PI / 2
         break
-      case 2: // Right wall
+      case 2: // Right wall — single row, works at z=0 and z=8 (sig at z=-8)
         x = width / 2 - hoverOffset
-        z = -depth / 3 + index * (depth / 3)
+        z = 0 + index * 8  // sig at z=-8, work0 at z=0, work1 at z=8
+        y = 0
         rotY = -Math.PI / 2
         break
     }
@@ -362,6 +392,159 @@ export function useGallery3D(
     scene.add(hitbox)
 
     return { group, hitbox }
+  }
+
+  // ==================================================================
+  // ABOUT CARD — left wall, 16:9 landscape
+  // ==================================================================
+  function buildAboutCard(author: AuthorInfo) {
+    const { width } = ROOM_SIZE
+    const group = new THREE.Group()
+    const cardW = 4.8, cardH = 2.7  // same 16:9 as works
+
+    // Shadow
+    group.add(new THREE.Mesh(
+      new THREE.BoxGeometry(cardW + 0.15, cardH + 0.15, 0.03),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1, depthWrite: false })
+    ))
+
+    // Body
+    group.add(new THREE.Mesh(
+      new THREE.BoxGeometry(cardW, cardH, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05 })
+    ))
+
+    // Canvas texture — 16:9 landscape
+    const fw = 1920, fh = 1080
+    const fc = document.createElement('canvas')
+    fc.width = fw; fc.height = fh
+    const ctx = fc.getContext('2d')!
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, fw, fh)
+
+    const barX = 60
+
+    // Left accent bar
+    ctx.fillStyle = '#87ceeb'; ctx.fillRect(barX, 120, 8, fh - 240)
+    // Top line
+    ctx.fillRect(barX + 30, 80, fw - barX - 120, 3)
+
+    // Avatar circle (left area)
+    ctx.fillStyle = '#e8f0f8'
+    ctx.beginPath(); ctx.arc(barX + 160, fh / 2 - 30, 90, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#87ceeb'
+    ctx.font = 'bold 80px "Noto Serif SC", serif'
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.fillText(author.penName.charAt(0), barX + 160, fh / 2 - 30)
+
+    // Pen name + bio (right of avatar)
+    const tx = barX + 300
+    ctx.fillStyle = '#1a1520'; ctx.font = 'bold 52px "Noto Serif SC", serif'
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    ctx.fillText(author.penName, tx, 180)
+
+    ctx.font = '26px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#555'
+    const bioLines = wrapLines(author.bio, 16)
+    bioLines.slice(0, 2).forEach((line, i) => ctx.fillText(line, tx, 280 + i * 40))
+
+    // Tags
+    ctx.font = '22px "Noto Sans SC", sans-serif'
+    let tagX = tx
+    author.tags.forEach(tag => {
+      const m = ctx.measureText(tag); const tw = m.width + 30
+      ctx.fillStyle = '#e8f4f8'; ctx.fillRect(tagX, 450, tw, 40)
+      ctx.strokeStyle = '#87ceeb40'; ctx.lineWidth = 1; ctx.strokeRect(tagX, 450, tw, 40)
+      ctx.fillStyle = '#5a8a9e'; ctx.fillText(tag, tagX + 15, 456)
+      tagX += tw + 14
+    })
+
+    // Hint
+    ctx.font = '16px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#bbb'
+    ctx.textAlign = 'right'; ctx.fillText('yunzhongshu.dev', fw - 80, fh - 60)
+
+    // Bottom accent line
+    ctx.fillStyle = '#87ceeb'; ctx.fillRect(barX + 30, fh - 83, fw - barX - 120, 3)
+
+    const tex = new THREE.CanvasTexture(fc)
+    tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter
+    tex.generateMipmaps = true; tex.needsUpdate = true
+
+    group.add(new THREE.Mesh(
+      new THREE.PlaneGeometry(cardW, cardH),
+      new THREE.MeshBasicMaterial({ map: tex, depthWrite: false })
+    ))
+
+    // Position on left wall, at z=-6 (left column)
+    group.position.set(-width / 2 + 0.2, 0, -6)
+    group.rotation.y = Math.PI / 2
+    group.userData = { type: 'about' }
+    scene.add(group)
+  }
+
+  // ==================================================================
+  // SIGNATURE WALL TITLE — right wall
+  // ==================================================================
+  function buildSignatureTitle() {
+    const { width } = ROOM_SIZE
+    const group = new THREE.Group()
+    const cardW = 4.8, cardH = 2.7  // same 16:9 as works
+
+    // Shadow
+    group.add(new THREE.Mesh(
+      new THREE.BoxGeometry(cardW + 0.15, cardH + 0.15, 0.03),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1, depthWrite: false })
+    ))
+
+    // Body
+    group.add(new THREE.Mesh(
+      new THREE.BoxGeometry(cardW, cardH, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05 })
+    ))
+
+    // Canvas texture — 16:9 landscape
+    const fw = 1920, fh = 1080
+    const fc = document.createElement('canvas')
+    fc.width = fw; fc.height = fh
+    const ctx = fc.getContext('2d')!
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, fw, fh)
+
+    const barX = 60
+    ctx.fillStyle = '#87ceeb'
+    ctx.fillRect(barX, 120, 8, fh - 240)
+    ctx.fillRect(barX + 30, 80, fw - barX - 120, 3)
+
+    // Title
+    ctx.fillStyle = '#1a1520'
+    ctx.font = 'bold 56px "Noto Serif SC", serif'
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+    ctx.fillText('签名墙', barX + 60, 180)
+
+    ctx.font = '24px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#999'
+    ctx.fillText('留下你的足迹与感悟', barX + 60, 280)
+
+    // Pen icon hint
+    ctx.font = '48px sans-serif'
+    ctx.fillText('🖊️', barX + 60, 400)
+
+    ctx.font = '20px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#bbb'
+    ctx.fillText('点击下方「签名」按钮参与', barX + 140, 430)
+
+    // Bottom accent
+    ctx.fillStyle = '#87ceeb'; ctx.fillRect(barX + 30, fh - 83, fw - barX - 120, 3)
+
+    const tex = new THREE.CanvasTexture(fc)
+    tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter
+    tex.generateMipmaps = true; tex.needsUpdate = true
+
+    group.add(new THREE.Mesh(
+      new THREE.PlaneGeometry(cardW, cardH),
+      new THREE.MeshBasicMaterial({ map: tex, depthWrite: false })
+    ))
+
+    // Position on right wall, at z=-8 (leftmost of 3 columns)
+    group.position.set(width / 2 - 0.2, 0, -8)
+    group.rotation.y = -Math.PI / 2
+    group.userData = { type: 'signature-wall' }
+    scene.add(group)
   }
 
   // ==================================================================
@@ -525,8 +708,21 @@ export function useGallery3D(
     const delta = Math.min(clock.getDelta(), 0.1)
 
     if (entered) {
+      // Reset animation (has priority over everything)
+      if (resetState) {
+        resetState.progress = Math.min(1, resetState.progress + RESET_SPEED * delta)
+        const t = ease(resetState.progress)
+        camera.position.lerpVectors(resetState.prevPosition, resetState.targetPos, t)
+        cameraYaw = lerpAngle(resetState.prevYaw, resetState.targetYaw, t)
+        cameraPitch = lerp(resetState.prevPitch, resetState.targetPitch, t)
+        camera.fov = lerp(resetState.prevFov, resetState.targetFov, t)
+        camera.updateProjectionMatrix()
+        keys.w = keys.a = keys.s = keys.d = false
+        if (resetState.progress >= 1) resetState = null
+      }
+
       // Focus animation
-      if (focusState) {
+      if (!resetState && focusState) {
         focusState.progress = Math.min(1, focusState.progress + FOCUS_SPEED * delta)
         const t = ease(focusState.progress)
         camera.position.lerpVectors(focusState.prevPosition, focusState.targetPos, t)
@@ -539,7 +735,7 @@ export function useGallery3D(
         keys.w = keys.a = keys.s = keys.d = false
       }
 
-      if (!focusState) {
+      if (!resetState && !focusState) {
         const hasKey = keys.w || keys.a || keys.s || keys.d
         if (hasKey) {
           targetPosition = null; if (moveMarker) moveMarker.visible = false
@@ -627,10 +823,27 @@ export function useGallery3D(
 
   function enterGallery() { entered = true }
 
+  function resetCamera() {
+    if (!entered) return
+    focusState = null
+    targetPosition = null
+    if (moveMarker) moveMarker.visible = false
+    resetState = {
+      prevPosition: camera.position.clone(),
+      prevYaw: cameraYaw, prevPitch: cameraPitch, prevFov: camera.fov,
+      targetPos: defaultPosition.clone(),
+      targetYaw: defaultYaw, targetPitch: defaultPitch, targetFov: defaultFov,
+      progress: 0
+    }
+  }
+
+  function isResetting() { return resetState !== null }
+
   return {
-    init, cleanup, addSignatureToWall, enterGallery,
+    init, cleanup, addSignatureToWall, enterGallery, resetCamera,
     isEntered: () => entered,
     isFocused,
+    isResetting,
     getFocusedWork: () => focusState?.work ?? null
   }
 }

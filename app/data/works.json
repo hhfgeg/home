@@ -4,7 +4,11 @@
     "realName": "",
     "avatar": "",
     "bio": "在AI与人类创造力的边界探索，用代码与文字构建通往未来的桥梁。致力于研究AI如何重塑创作方式，以及人机协作的无限可能。",
-    "tags": ["AI探索者", "创意工程师", "数字叙事者"],
+    "tags": [
+      "AI探索者",
+      "创意工程师",
+      "数字叙事者"
+    ],
     "contact": {
       "email": "yunzhongshu@example.com",
       "github": "https://github.com/yunzhongshu",
@@ -22,8 +26,16 @@
       "video": null,
       "thumbnail": "neural",
       "category": "AI艺术",
-      "tags": ["Stable Diffusion", "LoRA", "数字艺术", "超现实"],
-      "position": { "wall": 0, "index": 0 }
+      "tags": [
+        "Stable Diffusion",
+        "LoRA",
+        "数字艺术",
+        "超现实"
+      ],
+      "position": {
+        "wall": 0,
+        "index": 0
+      }
     },
     {
       "id": "poetry-machine",
@@ -34,8 +46,16 @@
       "video": null,
       "thumbnail": "poetry",
       "category": "AI文字",
-      "tags": ["LLM", "诗歌生成", "中文NLP", "创意写作"],
-      "position": { "wall": 0, "index": 1 }
+      "tags": [
+        "LLM",
+        "诗歌生成",
+        "中文NLP",
+        "创意写作"
+      ],
+      "position": {
+        "wall": 0,
+        "index": 1
+      }
     },
     {
       "id": "code-canvas",
@@ -46,8 +66,16 @@
       "video": null,
       "thumbnail": "code",
       "category": "AI交互",
-      "tags": ["生成艺术", "p5.js", "实时渲染", "人机交互"],
-      "position": { "wall": 1, "index": 0 }
+      "tags": [
+        "生成艺术",
+        "p5.js",
+        "实时渲染",
+        "人机交互"
+      ],
+      "position": {
+        "wall": 0,
+        "index": 2
+      }
     },
     {
       "id": "sound-of-silence",
@@ -58,8 +86,16 @@
       "video": null,
       "thumbnail": "sound",
       "category": "AI音乐",
-      "tags": ["音乐生成", "MusicGen", "音频处理", "算法作曲"],
-      "position": { "wall": 1, "index": 1 }
+      "tags": [
+        "音乐生成",
+        "MusicGen",
+        "音频处理",
+        "算法作曲"
+      ],
+      "position": {
+        "wall": 1,
+        "index": 0
+      }
     },
     {
       "id": "ai-companion",
@@ -70,20 +106,36 @@
       "video": null,
       "thumbnail": "companion",
       "category": "AI应用",
-      "tags": ["对话AI", "创意工具", "多模态", "交互设计"],
-      "position": { "wall": 2, "index": 0 }
+      "tags": [
+        "对话AI",
+        "创意工具",
+        "多模态",
+        "交互设计"
+      ],
+      "position": {
+        "wall": 2,
+        "index": 0
+      }
     },
     {
       "id": "data-palace",
       "name": "数据宫殿",
       "summary": "将抽象数据转化为可探索的3D空间，让信息拥有建筑般的美感。",
-      "description": "《数据宫殿》是一个将大规模数据集映射到3D沉浸式空间的实验项目。通过Three.js构建的数据可视化宫殿，用户可以以第一人称视角\u201c漫步\u201d在数据之中，感受信息之美。每个数据点都是一块砖石，整体构成了宏伟的知识殿堂。",
+      "description": "《数据宫殿》是一个将大规模数据集映射到3D沉浸式空间的实验项目。通过Three.js构建的数据可视化宫殿，用户可以以第一人称视角“漫步”在数据之中，感受信息之美。每个数据点都是一块砖石，整体构成了宏伟的知识殿堂。",
       "link": "https://yunzhongshu.dev/data-palace",
       "video": null,
       "thumbnail": "data",
       "category": "AI可视化",
-      "tags": ["数据可视化", "Three.js", "3D交互", "信息设计"],
-      "position": { "wall": 2, "index": 1 }
+      "tags": [
+        "数据可视化",
+        "Three.js",
+        "3D交互",
+        "信息设计"
+      ],
+      "position": {
+        "wall": 2,
+        "index": 1
+      }
     }
   ]
 }

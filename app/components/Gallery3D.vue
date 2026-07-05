@@ -20,10 +20,17 @@
         <span class="hud-sep">·</span>
         <span class="hud-icon">🖱</span>
         <span class="hud-text">右键旋转</span>
-        <span class="hud-sep">·</span>
-        <span class="hud-text">作品聚焦</span>
+        <span class="hud-btn" @click.stop="showSigModal = true">🖊 签名</span>
+        <span class="hud-btn" @click="doReset">↺ 复位</span>
       </div>
     </div>
+
+    <!-- Signature input modal -->
+    <SignatureInput
+      v-if="showSigModal"
+      @submit="onSigSubmit"
+      @close="showSigModal = false"
+    />
 
     <!-- Entry overlay -->
     <Transition name="entry-fade">
@@ -34,7 +41,7 @@
           <p class="entry-subtitle">点击进入3D画廊空间</p>
           <div class="entry-hint">
             <span class="hint-icon">👆</span>
-            <span>WASD移动 · 点击地面移动 · 右键拖拽旋转 · 滚轮缩放 · 点击作品查看</span>
+            <span>WASD移动 · 点击地面移动 · 右键旋转视角 · 滚轮缩放 · 点击作品聚焦</span>
           </div>
         </div>
       </div>
@@ -49,10 +56,16 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useGallery3D } from '~/composables/useGallery3D'
 import type { WorkItem, SignatureItem } from '~/composables/useGallery3D'
+import SignatureInput from '~/components/SignatureInput.vue'
 
 const props = defineProps<{
   works: WorkItem[]
   signatures: SignatureItem[]
+  author?: { penName: string; bio: string; tags: string[]; contact: any }
+}>()
+
+const emit = defineEmits<{
+  'add-signature': [sig: { name: string; comment: string; signatureDataUrl: string }]
 }>()
 
 const wrapperRef = ref<HTMLElement | null>(null)
@@ -60,31 +73,43 @@ const canvasRef = ref<HTMLElement | null>(null)
 const entered = ref(false)
 const focused = ref(false)
 const focusedWorkName = ref('')
+const showSigModal = ref(false)
 
 let galleryCleanup: (() => void) | null = null
 let galleryEnterFn: (() => void) | null = null
+let galleryResetFn: (() => void) | null = null
 let checkFocus: (() => boolean) | null = null
 let getFocusedWork: (() => WorkItem | null) | null = null
 
-// Poll focus state for HUD updates
 let focusInterval: ReturnType<typeof setInterval> | null = null
+
+function onSigSubmit(sig: { name: string; comment: string; signatureDataUrl: string }) {
+  emit('add-signature', sig)
+  showSigModal.value = false
+}
 
 function doEnter() {
   entered.value = true
   galleryEnterFn?.()
 }
 
+function doReset() {
+  galleryResetFn?.()
+}
+
 function initGallery() {
-  const { init, cleanup, addSignatureToWall, enterGallery, isFocused: getIsFocused, getFocusedWork: _getFocusedWork } = useGallery3D(
+  const { init, cleanup, addSignatureToWall, enterGallery, resetCamera, isFocused: getIsFocused, getFocusedWork: _getFocusedWork } = useGallery3D(
     canvasRef,
     props.works,
-    () => {},  // no-op: focus handled internally
-    ref(props.signatures)
+    () => {},
+    ref(props.signatures),
+    props.author
   )
   checkFocus = getIsFocused
   getFocusedWork = _getFocusedWork
   galleryCleanup = cleanup
   galleryEnterFn = enterGallery
+  galleryResetFn = resetCamera
   init()
 
   // Poll focus state for HUD
@@ -180,6 +205,22 @@ onUnmounted(() => {
 
 .hud-icon {
   font-size: 14px;
+}
+
+.hud-btn {
+  cursor: pointer;
+  background: rgba(135, 206, 235, 0.15);
+  border: 1px solid rgba(135, 206, 235, 0.25);
+  border-radius: 14px;
+  padding: 4px 14px;
+  font-size: 13px;
+  color: #5a8a9e;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+.hud-btn:hover {
+  background: rgba(135, 206, 235, 0.25);
+  border-color: rgba(135, 206, 235, 0.4);
 }
 
 /* Entry overlay */

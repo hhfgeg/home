@@ -3,25 +3,14 @@
     <NavigationBar />
 
     <main>
-      <!-- Hero / Gallery section -->
       <section id="gallery" class="app-gallery">
         <Gallery3D
           :works="worksData.works"
           :signatures="signatures"
+          :author="worksData.author"
+          @add-signature="onAddSignature"
         />
       </section>
-
-      <!-- About section -->
-      <AboutSection />
-
-      <!-- Signature wall section -->
-      <SignatureWall
-        :signatures="signatures"
-        @add-signature="onAddSignature"
-      />
-
-      <!-- Contact section -->
-      <ContactSection />
     </main>
 
     <footer class="app-footer">
@@ -34,14 +23,9 @@
 import { ref } from 'vue'
 import NavigationBar from '~/components/NavigationBar.vue'
 import Gallery3D from '~/components/Gallery3D.vue'
-import AboutSection from '~/components/AboutSection.vue'
-import SignatureWall from '~/components/SignatureWall.vue'
-import ContactSection from '~/components/ContactSection.vue'
 import type { SignatureItem } from '~/composables/useGallery3D'
 
-// Load works data
 import worksJson from '~/data/works.json'
-
 const worksData = worksJson
 const signatures = ref<SignatureItem[]>(loadSignatures())
 
