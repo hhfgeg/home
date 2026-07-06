@@ -3,12 +3,12 @@ import { useStore } from '../store'
 
 interface LoginModalProps {
   onClose: () => void
-  isSetup: boolean // true = 首次设置密码，false = 登录
+  isSetup: boolean
+  slug: string // 空间标识 = 用户名
   accent?: string
 }
 
-export default function LoginModal({ onClose, isSetup, accent = '#22e3ff' }: LoginModalProps) {
-  const [username, setUsername] = useState('')
+export default function LoginModal({ onClose, isSetup, slug, accent = '#22e3ff' }: LoginModalProps) {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
@@ -36,7 +36,7 @@ export default function LoginModal({ onClose, isSetup, accent = '#22e3ff' }: Log
       }
       setLoading(true)
       try {
-        await setupPassword(password)
+        await setupPassword(slug, password)
         onClose()
       } catch (err: any) {
         setError(err.message || '设置失败，请重试')
@@ -44,13 +44,13 @@ export default function LoginModal({ onClose, isSetup, accent = '#22e3ff' }: Log
         setLoading(false)
       }
     } else {
-      if (!username.trim() || !password) {
-        setError('请输入用户名和密码')
+      if (!password) {
+        setError('请输入密码')
         return
       }
       setLoading(true)
       try {
-        await login(username.trim(), password)
+        await login(slug, password)
         onClose()
       } catch (err: any) {
         setError(err.message || '登录失败，请重试')
@@ -135,19 +135,28 @@ export default function LoginModal({ onClose, isSetup, accent = '#22e3ff' }: Log
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {!isSetup && (
-            <div>
-              <label style={labelStyle(accent)}>用户名 / USERNAME</label>
-              <input ref={inputRef} {...inputProps('text', username, setUsername, 'admin', 'username')} />
+          {/* 空间标识 = 用户名，只读展示 */}
+          <div>
+            <label style={labelStyle(accent)}>空间标识 / SPACE ID</label>
+            <div style={{
+              padding: '10px 14px', borderRadius: 10,
+              border: `1px solid ${accent}44`, background: 'rgba(0,0,0,0.3)',
+              color: '#9fb3c8', fontSize: 14, letterSpacing: '0.05em',
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>
+              {slug}
             </div>
-          )}
+            <div style={{ marginTop: 4, fontSize: 9, color: '#556678' }}>
+              空间标识即您的管理员账号
+            </div>
+          </div>
 
           <div>
             <label style={labelStyle(accent)}>
               {isSetup ? '设置密码 / PASSWORD' : '密码 / PASSWORD'}
             </label>
             <input
-              ref={isSetup ? inputRef : undefined}
+              ref={inputRef}
               {...inputProps('password', password, setPassword, isSetup ? '至少 4 个字符' : '输入密码', isSetup ? 'new-password' : 'current-password')}
             />
           </div>

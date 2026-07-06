@@ -157,16 +157,10 @@ function readUserFile(username) {
   }
 }
 
-/** 写入用户文件 data/<username>.json */
-async function writeUserFile(username, data) {
-  const filePath = path.join(DATA_DIR, `${username}.json`);
-  await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2));
-}
-
-/** 检查管理员是否已配置（admin.json 是否存在且有 passwordHash） */
-function isAdminConfigured() {
-  const user = readUserFile('admin');
-  return !!(user && user.passwordHash);
+/** 检查指定空间是否已设置密码 */
+function isSpaceConfigured(slug) {
+  const data = readSpaceData(slug);
+  return !!(data && data.passwordHash);
 }
 
 async function readBody(req) {
@@ -251,60 +245,57 @@ async function handleSignatures(req, res, slug) {
 //  认证 API
 // ================================================================
 
-// POST /api/auth/setup —— 首次设置管理员密码
-async function handleAuthSetup(req, res, slug) {
+// POST /api/auth/setup —— 首次设置空间密码
+async function handleAuthSetup(req, res) {
   if (req.method !== 'POST') { res.writeHead(405); return void res.end(); }
-
   try {
     const body = await readBody(req);
-    const { password } = JSON.parse(body);
-    if (!password || password.length < 4) {
+    const { slug, password } = JSON.parse(body);
+    if (!slug || !password || password.length < 4) {
       return jsonResponse(res, { error: '密码至少需要 4 个字符' }, 400);
     }
-
-    // 检查是否已配置过管理员（data/admin.json 是否存在）
-    if (isAdminConfigured()) {
-      return jsonResponse(res, { error: '管理员密码已设置，请直接登录' }, 409);
+    if (isSpaceConfigured(slug)) {
+      return jsonResponse(res, { error: '该空间已设置密码，请直接登录' }, 409);
     }
+    const data = readSpaceData(slug);
+    if (!data) return jsonResponse(res, { error: '空间不存在' }, 404);
+    data['passwordHash'] = makePasswordHash(password);
+    await writeSpaceData(slug, data);
 
-    // 创建用户文件 data/admin.json（PBKDF2 加盐哈希）
-    const passwordHash = makePasswordHash(password);
-    await writeUserFile('admin', { id: 'admin', passwordHash });
-
-    // 设置成功后直接返回 token
-    const token = generateToken('admin');
-    return jsonResponse(res, { success: true, token, username: 'admin' });
+    const token = generateToken(slug);
+    return jsonResponse(res, { success: true, token, username: slug });
   } catch (e) {
     return jsonResponse(res, { error: String(e) }, 500);
   }
 }
 
-// POST /api/auth/login —— 管理员登录
-async function handleAuthLogin(req, res, slug) {
+// POST /api/auth/login —— 空间管理员登录
+async function handleAuthLogin(req, res) {
   if (req.method !== 'POST') { res.writeHead(405); return void res.end(); }
-
   try {
     const body = await readBody(req);
     const { username, password } = JSON.parse(body);
     if (!username || !password) {
       return jsonResponse(res, { error: '请输入用户名和密码' }, 400);
     }
-
-    const user = readUserFile(username);
-    if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
+    const data = readSpaceData(username);
+    if (!data || !data.passwordHash || !verifyPassword(password, data.passwordHash)) {
       return jsonResponse(res, { error: '用户名或密码错误' }, 401);
     }
-
     const token = generateToken(username);
-    return jsonResponse(res, { success: true, token, username: user.id || username });
+    return jsonResponse(res, { success: true, token, username });
   } catch (e) {
     return jsonResponse(res, { error: String(e) }, 500);
   }
 }
 
-// GET /api/auth/status —— 检查管理员是否已配置 + 当前登录状态
-function handleAuthStatus(req, res, slug) {
-  const configured = isAdminConfigured();
+// GET /api/auth/status —— 检查指定空间是否已配置密码 + 当前登录状态
+function handleAuthStatus(req, res) {
+  const { slug } = (() => {
+    const url = new URL(req.url, 'http://localhost');
+    return { slug: url.searchParams.get('slug') || '' };
+  })();
+  const configured = slug ? isSpaceConfigured(slug) : false;
   const username = authenticate(req);
   return jsonResponse(res, { configured, loggedIn: !!username, username: username || null });
 }
@@ -336,23 +327,21 @@ async function handleAdminCardsPost(req, res, slug) {
     if (!item.id || !item.kind) {
       return jsonResponse(res, { error: '卡片必须包含 id 和 kind 字段' }, 400);
     }
-    if (PROTECTED_IDS.has(item.id) && item.kind !== 'about' && item.kind !== 'signature') {
-      return jsonResponse(res, { error: `不允许修改受保护的卡片：${item.id}` }, 403);
-    }
 
     const data = readSpaceData(safeSlug);
     if (!data) return jsonResponse(res, { error: '空间不存在' }, 404);
 
     const items = data.items || [];
     const idx = items.findIndex((c) => c.id === item.id);
+
     if (idx >= 0) {
-      // 更新已有卡片
-      if (PROTECTED_IDS.has(item.id)) {
-        return jsonResponse(res, { error: `不允许修改受保护的卡片：${item.id}` }, 403);
-      }
+      // 更新已有卡片（系统卡片 about/signature 也允许更新字段）
       items[idx] = { ...items[idx], ...item };
     } else {
-      // 新增卡片
+      // 新增卡片：不允许新增受保护的系统卡片
+      if (PROTECTED_IDS.has(item.id)) {
+        return jsonResponse(res, { error: `不允许新增系统卡片：${item.id}` }, 403);
+      }
       items.push(item);
     }
     data['items'] = items;
@@ -363,12 +352,12 @@ async function handleAdminCardsPost(req, res, slug) {
   }
 }
 
-// DELETE /api/admin/cards/:slug/:id —— 删除卡片
+// DELETE /api/admin/cards/:slug/:id —— 删除卡片（系统卡片不可删除）
 async function handleAdminCardsDelete(req, res, slug, id) {
   const safeSlug = slug || DATA_FALLBACK_SLUG;
   const username = authenticate(req);
   if (!username) return jsonResponse(res, { error: '未授权访问' }, 401);
-  if (PROTECTED_IDS.has(id)) return jsonResponse(res, { error: `不允许删除受保护的卡片：${id}` }, 403);
+  if (PROTECTED_IDS.has(id)) return jsonResponse(res, { error: `不允许删除系统卡片：${id}` }, 403);
 
   const data = readSpaceData(safeSlug);
   if (!data) return jsonResponse(res, { error: '空间不存在' }, 404);
@@ -384,21 +373,50 @@ async function handleAdminCardsDelete(req, res, slug, id) {
 }
 
 // ================================================================
+//  签名管理 API（需认证）
+// ================================================================
+
+// GET /api/admin/signatures/:slug —— 列出所有签名
+function handleAdminSignaturesGet(req, res, slug) {
+  const safeSlug = slug || DATA_FALLBACK_SLUG;
+  const username = authenticate(req);
+  if (!username) return jsonResponse(res, { error: '未授权访问' }, 401);
+
+  const data = readSpaceData(safeSlug);
+  if (!data) return jsonResponse(res, { error: '空间不存在' }, 404);
+  return jsonResponse(res, getSignatures(data));
+}
+
+// DELETE /api/admin/signatures/:slug/:id —— 删除签名
+async function handleAdminSignaturesDelete(req, res, slug, id) {
+  const safeSlug = slug || DATA_FALLBACK_SLUG;
+  const username = authenticate(req);
+  if (!username) return jsonResponse(res, { error: '未授权访问' }, 401);
+
+  const data = readSpaceData(safeSlug);
+  if (!data) return jsonResponse(res, { error: '空间不存在' }, 404);
+
+  const sigs = getSignatures(data);
+  const idx = sigs.findIndex((s) => s.id === id);
+  if (idx < 0) return jsonResponse(res, { error: '签名不存在' }, 404);
+
+  sigs.splice(idx, 1);
+  data['signatures'] = sigs;
+  await writeSpaceData(safeSlug, data);
+  return jsonResponse(res, { success: true, signatures: sigs });
+}
+
+// ================================================================
 //  请求路由
 // ================================================================
 const server = http.createServer((req, res) => {
   const url = req.url || '/';
   const method = req.method || 'GET';
 
-  // ---- 认证相关（跨空间全局） ----
-  // POST /api/auth/setup
+  // ---- 认证（每个空间=独立用户，密码存在空间JSON的passwordHash字段） ----
   if (url === '/api/auth/setup' && method === 'POST') return void handleAuthSetup(req, res);
-
-  // POST /api/auth/login
   if (url === '/api/auth/login' && method === 'POST') return void handleAuthLogin(req, res);
-
-  // GET /api/auth/status
-  if (url === '/api/auth/status' && method === 'GET') return void handleAuthStatus(req, res);
+  if (url.startsWith('/api/auth/status') && method === 'GET') return void handleAuthStatus(req, res);
 
   // ---- 卡片管理（需认证） ----
   const adminCardsDel = url.match(/^\/api\/admin\/cards\/([^/?]+)\/([^/?]+)/);
@@ -409,6 +427,13 @@ const server = http.createServer((req, res) => {
     if (method === 'GET') return void handleAdminCardsGet(req, res, adminCards[1]);
     if (method === 'POST') return void handleAdminCardsPost(req, res, adminCards[1]);
   }
+
+  // ---- 签名管理（需认证） ----
+  const adminSigDel = url.match(/^\/api\/admin\/signatures\/([^/?]+)\/([^/?]+)/);
+  if (adminSigDel && method === 'DELETE') return void handleAdminSignaturesDelete(req, res, adminSigDel[1], adminSigDel[2]);
+
+  const adminSig = url.match(/^\/api\/admin\/signatures\/([^/?]+)/);
+  if (adminSig && method === 'GET') return void handleAdminSignaturesGet(req, res, adminSig[1]);
 
   // ---- 空间数据 ----
   if (url === '/api/spaces' && method === 'GET') return void handleListSpaces(res);

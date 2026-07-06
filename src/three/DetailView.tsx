@@ -132,7 +132,7 @@ function AboutDetail({ item, slug }: { item: Extract<Card, { kind: 'about' }>; s
 
   // 仅在 mount 时检查一次认证状态
   useEffect(() => {
-    checkAuthStatus()
+    checkAuthStatus(slug)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -197,7 +197,7 @@ function AboutDetail({ item, slug }: { item: Extract<Card, { kind: 'about' }>; s
               </>
             ) : (
               <button
-                onClick={(e) => { e.stopPropagation(); openLoginModal() }}
+                onClick={(e) => { e.stopPropagation(); openLoginModal(slug) }}
                 onPointerDown={(e) => e.stopPropagation()}
                 className="font-display rounded-full px-4 py-2 text-[11px] tracking-widest transition hover:brightness-125"
                 style={{

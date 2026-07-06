@@ -113,6 +113,7 @@ function SpacePage() {
         <LoginModal
           onClose={closeLoginModal}
           isSetup={!isConfigured}
+          slug={adminSlug || slug}
           accent={accent}
         />
       )}

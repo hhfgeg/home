@@ -42,20 +42,20 @@ type SpaceState = {
 type AuthState = {
   isLoggedIn: boolean
   token: string | null
-  username: string | null
+  username: string | null // 即 space slug
   isConfigured: boolean | null // null = 加载中
-  modalOpen: boolean // true 时 Scene 不退焦
-  showLoginModal: boolean // 登录/设置密码模态窗
-  showAdminPanel: boolean // 管理面板
-  adminSlug: string // 管理面板操作的 space slug
+  modalOpen: boolean
+  showLoginModal: boolean
+  showAdminPanel: boolean
+  adminSlug: string
   setModalOpen: (open: boolean) => void
-  openLoginModal: () => void
+  openLoginModal: (slug: string) => void
   closeLoginModal: () => void
   openAdminPanel: (slug: string) => void
   closeAdminPanel: () => void
-  checkAuthStatus: () => Promise<void>
-  setupPassword: (password: string) => Promise<void>
-  login: (username: string, password: string) => Promise<void>
+  checkAuthStatus: (slug: string) => Promise<void>
+  setupPassword: (slug: string, password: string) => Promise<void>
+  login: (slug: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -129,20 +129,19 @@ export const useStore = create<State>((set) => ({
   showAdminPanel: false,
   adminSlug: '',
   setModalOpen: (open) => set({ modalOpen: open }),
-  openLoginModal: () => set({ showLoginModal: true, modalOpen: true }),
+  openLoginModal: (slug) => set({ showLoginModal: true, adminSlug: slug, modalOpen: true }),
   closeLoginModal: () => set({ showLoginModal: false, modalOpen: false }),
   openAdminPanel: (slug) => set({ showAdminPanel: true, adminSlug: slug, modalOpen: true }),
   closeAdminPanel: () => set({ showAdminPanel: false, adminSlug: '', modalOpen: false }),
 
-  checkAuthStatus: async () => {
+  checkAuthStatus: async (slug) => {
     try {
-      const res = await fetch('/api/auth/status')
+      const res = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`)
       const data = await res.json()
       const persisted = loadPersistedAuth()
 
       if (persisted && data.configured) {
-        // 有本地 token，用 token 验证是否有效
-        const verifyRes = await fetch('/api/auth/status', {
+        const verifyRes = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`, {
           headers: { Authorization: `Bearer ${persisted.token}` },
         })
         const verifyData = await verifyRes.json()
@@ -152,7 +151,6 @@ export const useStore = create<State>((set) => ({
         }
       }
 
-      // token 无效或不存在
       clearAuth()
       set({ isLoggedIn: false, token: null, username: null, isConfigured: data.configured })
     } catch {
@@ -166,11 +164,11 @@ export const useStore = create<State>((set) => ({
     }
   },
 
-  setupPassword: async (password: string) => {
+  setupPassword: async (slug, password) => {
     const res = await fetch('/api/auth/setup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ slug, password }),
     })
     if (!res.ok) {
       const err = await res.json()
@@ -181,7 +179,7 @@ export const useStore = create<State>((set) => ({
     set({ isLoggedIn: true, token: data.token, username: data.username, isConfigured: true })
   },
 
-  login: async (username: string, password: string) => {
+  login: async (username, password) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

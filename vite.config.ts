@@ -97,19 +97,6 @@ function devApi() {
           await fs.promises.writeFile(path.join(dataDir, `${slug}.json`), JSON.stringify(data, null, 2))
         }
 
-        // 用户文件读写（data/<id>.json）
-        const readUserFile = async (username: string): Promise<Record<string, any> | null> => {
-          try {
-            const raw = await fs.promises.readFile(path.join(dataDir, `${username}.json`), 'utf-8')
-            return JSON.parse(raw)
-          } catch { return null }
-        }
-
-        const writeUserFile = async (username: string, data: Record<string, any>) => {
-          await fs.promises.mkdir(dataDir, { recursive: true })
-          await fs.promises.writeFile(path.join(dataDir, `${username}.json`), JSON.stringify(data, null, 2))
-        }
-
         const readBody = (): Promise<string> =>
           new Promise((resolve) => {
             let body = ''
@@ -123,27 +110,30 @@ function devApi() {
           res.end(JSON.stringify(data))
         }
 
-        // ---- 认证 API（跨空间全局，用户存为 data/<id>.json） ----
+        // ---- 认证 API（每个空间=独立用户，密码存于空间JSON的passwordHash） ----
         if (url === '/api/auth/setup' && method === 'POST') {
           const body = JSON.parse(await readBody())
-          if (!body.password || body.password.length < 4) return jsonRes({ error: '密码至少需要 4 个字符' }, 400)
-          const existing = await readUserFile('admin')
-          if (existing && existing.passwordHash) return jsonRes({ error: '管理员密码已设置' }, 409)
-          await writeUserFile('admin', { id: 'admin', passwordHash: makePasswordHash(body.password) })
-          return jsonRes({ success: true, token: generateToken('admin'), username: 'admin' })
+          if (!body.slug || !body.password || body.password.length < 4) return jsonRes({ error: '密码至少需要 4 个字符' }, 400)
+          const data = await readSpace(body.slug)
+          if (!data || Object.keys(data).length === 0) return jsonRes({ error: '空间不存在' }, 404)
+          if (data.passwordHash) return jsonRes({ error: '该空间已设置密码' }, 409)
+          data['passwordHash'] = makePasswordHash(body.password)
+          await writeSpace(body.slug, data)
+          return jsonRes({ success: true, token: generateToken(body.slug), username: body.slug })
         }
 
         if (url === '/api/auth/login' && method === 'POST') {
           const body = JSON.parse(await readBody())
           if (!body.username || !body.password) return jsonRes({ error: '请输入用户名和密码' }, 400)
-          const user = await readUserFile(body.username)
-          if (!user || !user.passwordHash || !verifyPassword(body.password, user.passwordHash)) return jsonRes({ error: '用户名或密码错误' }, 401)
-          return jsonRes({ success: true, token: generateToken(body.username), username: user.id || body.username })
+          const data = await readSpace(body.username)
+          if (!data || !data.passwordHash || !verifyPassword(body.password, data.passwordHash)) return jsonRes({ error: '用户名或密码错误' }, 401)
+          return jsonRes({ success: true, token: generateToken(body.username), username: body.username })
         }
 
-        if (url === '/api/auth/status' && method === 'GET') {
-          const user = await readUserFile('admin')
-          const configured = !!(user && user.passwordHash)
+        if (url.startsWith('/api/auth/status') && method === 'GET') {
+          const slugParam = new URL(url, 'http://localhost').searchParams.get('slug') || ''
+          const data = slugParam ? await readSpace(slugParam) : null
+          const configured = !!(data && data.passwordHash)
           return jsonRes({ configured, loggedIn: !!authenticate(req), username: authenticate(req) || null })
         }
 
@@ -156,7 +146,7 @@ function devApi() {
           const delMatch = url.match(/^\/api\/admin\/cards\/([^/?]+)\/([^/?]+)/)
           if (delMatch && method === 'DELETE') {
             const [, slug, id] = delMatch
-            if (PROTECTED_IDS.has(id)) return jsonRes({ error: '不允许删除受保护的卡片' }, 403)
+            if (PROTECTED_IDS.has(id)) return jsonRes({ error: '不允许删除系统卡片' }, 403)
             const data = await readSpace(slug)
             const items = data.items || []
             const idx = items.findIndex((c: any) => c.id === id)
@@ -178,15 +168,47 @@ function devApi() {
             if (method === 'POST') {
               const item = JSON.parse(await readBody())
               if (!item.id || !item.kind) return jsonRes({ error: '卡片必须包含 id 和 kind 字段' }, 400)
-              if (PROTECTED_IDS.has(item.id)) return jsonRes({ error: '不允许修改受保护的卡片' }, 403)
               const items = data.items || []
               const idx = items.findIndex((c: any) => c.id === item.id)
-              if (idx >= 0) items[idx] = { ...items[idx], ...item }
-              else items.push(item)
+              if (idx >= 0) {
+                // 更新已有卡片（系统卡片也允许更新字段）
+                items[idx] = { ...items[idx], ...item }
+              } else {
+                // 新增：不允许新增系统卡片
+                if (PROTECTED_IDS.has(item.id)) return jsonRes({ error: '不允许新增系统卡片' }, 403)
+                items.push(item)
+              }
               data['items'] = items
               await writeSpace(slug, data)
               return jsonRes({ success: true, items })
             }
+          }
+        }
+
+        // ---- 签名管理 API（需认证） ----
+        if (url.startsWith('/api/admin/signatures/')) {
+          const user = authenticate(req)
+          if (!user) return jsonRes({ error: '未授权访问' }, 401)
+
+          // DELETE /api/admin/signatures/:slug/:id
+          const sigDel = url.match(/^\/api\/admin\/signatures\/([^/?]+)\/([^/?]+)/)
+          if (sigDel && method === 'DELETE') {
+            const [, slug, id] = sigDel
+            const data = await readSpace(slug)
+            const sigs = Array.isArray(data['signatures']) ? data['signatures'] : []
+            const idx = sigs.findIndex((s: any) => s.id === id)
+            if (idx < 0) return jsonRes({ error: '签名不存在' }, 404)
+            sigs.splice(idx, 1)
+            data['signatures'] = sigs
+            await writeSpace(slug, data)
+            return jsonRes({ success: true, signatures: sigs })
+          }
+
+          // GET /api/admin/signatures/:slug
+          const sigMatch = url.match(/^\/api\/admin\/signatures\/([^/?]+)/)
+          if (sigMatch && method === 'GET') {
+            const data = await readSpace(sigMatch[1])
+            return jsonRes(Array.isArray(data['signatures']) ? data['signatures'] : [])
           }
         }
 
