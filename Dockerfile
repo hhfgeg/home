@@ -20,10 +20,12 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# 复制构建产物 + 服务端 + data 目录
+# 复制构建产物 + 服务端
 COPY --from=builder /app/dist ./dist
 COPY server.js .
-COPY data ./data
+
+# 确保签名数据目录存在（runtime 数据，启动时自动创建）
+RUN mkdir -p /app/data
 
 EXPOSE 80
 
