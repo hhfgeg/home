@@ -24,18 +24,68 @@ function withImg(s: Signature): Signature {
   return s
 }
 
-type State = {
+// ================================================================
+//  签名墙状态
+// ================================================================
+type SpaceState = {
   focusedId: string | null
   setFocused: (id: string | null) => void
   signatures: Signature[]
   loading: boolean
-  /** 按 slug 从 data/<slug>.json 的 signatures 字段加载签名 */
   loadSignatures: (slug: string) => Promise<void>
-  /** 追加签名并写回 data/<slug>.json */
   addSignature: (slug: string, s: Omit<Signature, 'id' | 'ts'>) => Promise<void>
 }
 
+// ================================================================
+//  认证状态（用户文件存于 data/<id>.json，含 PBKDF2 加盐哈希）
+// ================================================================
+type AuthState = {
+  isLoggedIn: boolean
+  token: string | null
+  username: string | null
+  isConfigured: boolean | null // null = 加载中
+  modalOpen: boolean // true 时 Scene 不退焦
+  showLoginModal: boolean // 登录/设置密码模态窗
+  showAdminPanel: boolean // 管理面板
+  adminSlug: string // 管理面板操作的 space slug
+  setModalOpen: (open: boolean) => void
+  openLoginModal: () => void
+  closeLoginModal: () => void
+  openAdminPanel: (slug: string) => void
+  closeAdminPanel: () => void
+  checkAuthStatus: () => Promise<void>
+  setupPassword: (password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  logout: () => void
+}
+
+const STORAGE_KEY = 'yunzhongshu_auth'
+
+function persistAuth(token: string, username: string) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, username }))
+}
+
+function clearAuth() {
+  localStorage.removeItem(STORAGE_KEY)
+}
+
+function loadPersistedAuth(): { token: string; username: string } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    const data = JSON.parse(raw)
+    if (data.token && data.username) return data
+    return null
+  } catch {
+    return null
+  }
+}
+
+// ---- 合并 Zustand store ----
+type State = SpaceState & AuthState
+
 export const useStore = create<State>((set) => ({
+  // Space state
   focusedId: null,
   setFocused: (id) => set({ focusedId: id }),
   signatures: [],
@@ -60,7 +110,6 @@ export const useStore = create<State>((set) => ({
       const arr: Signature[] = await res.json()
       set({ signatures: arr.map(withImg) })
     } catch {
-      // 接口失败时本地兜底，保证可用性
       set((st) => ({
         signatures: [
           ...st.signatures,
@@ -69,4 +118,88 @@ export const useStore = create<State>((set) => ({
       }))
     }
   },
+
+  // Auth state
+  isLoggedIn: false,
+  token: null,
+  username: null,
+  isConfigured: null,
+  modalOpen: false,
+  showLoginModal: false,
+  showAdminPanel: false,
+  adminSlug: '',
+  setModalOpen: (open) => set({ modalOpen: open }),
+  openLoginModal: () => set({ showLoginModal: true, modalOpen: true }),
+  closeLoginModal: () => set({ showLoginModal: false, modalOpen: false }),
+  openAdminPanel: (slug) => set({ showAdminPanel: true, adminSlug: slug, modalOpen: true }),
+  closeAdminPanel: () => set({ showAdminPanel: false, adminSlug: '', modalOpen: false }),
+
+  checkAuthStatus: async () => {
+    try {
+      const res = await fetch('/api/auth/status')
+      const data = await res.json()
+      const persisted = loadPersistedAuth()
+
+      if (persisted && data.configured) {
+        // 有本地 token，用 token 验证是否有效
+        const verifyRes = await fetch('/api/auth/status', {
+          headers: { Authorization: `Bearer ${persisted.token}` },
+        })
+        const verifyData = await verifyRes.json()
+        if (verifyData.loggedIn) {
+          set({ isLoggedIn: true, token: persisted.token, username: verifyData.username, isConfigured: true })
+          return
+        }
+      }
+
+      // token 无效或不存在
+      clearAuth()
+      set({ isLoggedIn: false, token: null, username: null, isConfigured: data.configured })
+    } catch {
+      const persisted = loadPersistedAuth()
+      set({
+        isLoggedIn: !!persisted,
+        token: persisted?.token || null,
+        username: persisted?.username || null,
+        isConfigured: false,
+      })
+    }
+  },
+
+  setupPassword: async (password: string) => {
+    const res = await fetch('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || '设置失败')
+    }
+    const data = await res.json()
+    persistAuth(data.token, data.username)
+    set({ isLoggedIn: true, token: data.token, username: data.username, isConfigured: true })
+  },
+
+  login: async (username: string, password: string) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.error || '登录失败')
+    }
+    const data = await res.json()
+    persistAuth(data.token, data.username)
+    set({ isLoggedIn: true, token: data.token, username: data.username, isConfigured: true })
+  },
+
+  logout: () => {
+    clearAuth()
+    set({ isLoggedIn: false, token: null, username: null })
+  },
 }))
+
+

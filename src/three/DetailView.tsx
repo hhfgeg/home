@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Html } from '@react-three/drei'
 import { useStore } from '../store'
 import { type Card } from '../data'
@@ -122,69 +123,121 @@ function WorkDetail({ item }: { item: Extract<Card, { kind: 'work' }> }) {
   )
 }
 
-function AboutDetail({ item }: { item: Extract<Card, { kind: 'about' }> }) {
+function AboutDetail({ item, slug }: { item: Extract<Card, { kind: 'about' }>; slug: string }) {
+  const isLoggedIn = useStore((s) => s.isLoggedIn)
+  const isConfigured = useStore((s) => s.isConfigured)
+  const checkAuthStatus = useStore((s) => s.checkAuthStatus)
+  const openLoginModal = useStore((s) => s.openLoginModal)
+  const openAdminPanel = useStore((s) => s.openAdminPanel)
+
+  // 仅在 mount 时检查一次认证状态
+  useEffect(() => {
+    checkAuthStatus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
-    <Panel item={item}>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="font-display text-[10px] tracking-[0.35em]" style={{ color: item.accent }}>
-          PROFILE · 关于我
-        </div>
-        <BackBtn />
-      </div>
-      <h2
-        className="font-display"
-        style={{ fontSize: 36, fontWeight: 800, color: '#eafcff', textShadow: `0 0 8px ${item.accent}, 0 0 22px ${item.accent}` }}
-      >
-        {item.name}
-      </h2>
-      <div className="text-sm" style={{ color: item.accent }}>
-        {item.role} · {item.location}
-      </div>
-
-      <div className="mt-4 grid grid-cols-4 gap-2">
-        {item.stats.map((s) => (
-          <div key={s.k} className="rounded-lg p-2 text-center" style={{ border: `1px solid ${item.accent}33`, background: 'rgba(0,0,0,0.25)' }}>
-            <div className="font-display text-lg" style={{ color: item.accent }}>
-              {s.v}
-            </div>
-            <div className="text-[10px] tracking-widest" style={{ color: '#9fb3c8' }}>
-              {s.k}
-            </div>
+    <>
+      <Panel item={item}>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="font-display text-[10px] tracking-[0.35em]" style={{ color: item.accent }}>
+            PROFILE · 关于我
           </div>
-        ))}
-      </div>
-
-      {item.bio.map((p, i) => (
-        <p key={i} className="mt-3 text-[13px] leading-relaxed" style={{ color: '#dcefff' }}>
-          {p}
-        </p>
-      ))}
-
-      <div className="mt-5">
-        <div className="font-display text-[10px] tracking-[0.35em]" style={{ color: item.accent }}>
-          联系方式 / CONTACT
+          <BackBtn />
         </div>
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {item.contacts.map((c) => (
-            <a
-              key={c.label}
-              href={c.href}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-between rounded-lg px-3 py-2 transition hover:brightness-125"
-              style={{ border: `1px solid ${item.accent}44`, background: 'rgba(0,0,0,0.25)' }}
-            >
-              <span className="text-[11px] tracking-widest" style={{ color: item.accent }}>
-                {c.label}
-              </span>
-              <span className="text-[12px]" style={{ color: '#dcefff' }}>
-                {c.value}
-              </span>
-            </a>
+        <h2
+          className="font-display"
+          style={{ fontSize: 36, fontWeight: 800, color: '#eafcff', textShadow: `0 0 8px ${item.accent}, 0 0 22px ${item.accent}` }}
+        >
+          {item.name}
+        </h2>
+        <div className="text-sm" style={{ color: item.accent }}>
+          {item.role} · {item.location}
+        </div>
+
+        <div className="mt-4 grid grid-cols-4 gap-2">
+          {item.stats.map((s) => (
+            <div key={s.k} className="rounded-lg p-2 text-center" style={{ border: `1px solid ${item.accent}33`, background: 'rgba(0,0,0,0.25)' }}>
+              <div className="font-display text-lg" style={{ color: item.accent }}>
+                {s.v}
+              </div>
+              <div className="text-[10px] tracking-widest" style={{ color: '#9fb3c8' }}>
+                {s.k}
+              </div>
+            </div>
           ))}
         </div>
-      </div>
-    </Panel>
+
+        {item.bio.map((p, i) => (
+          <p key={i} className="mt-3 text-[13px] leading-relaxed" style={{ color: '#dcefff' }}>
+            {p}
+          </p>
+        ))}
+
+        {/* 管理按钮 */}
+        <div className="mt-4">
+          <div className="font-display text-[10px] tracking-[0.35em]" style={{ color: item.accent }}>
+            管理 / ADMIN
+          </div>
+          <div className="mt-2 flex gap-2">
+            {isLoggedIn ? (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); openAdminPanel(slug) }}
+                  className="font-display rounded-full px-4 py-2 text-[11px] tracking-widest transition hover:brightness-125"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  style={{
+                    border: `1px solid ${item.accent}`,
+                    color: item.accent,
+                    boxShadow: `0 0 12px ${item.accent}33`,
+                  }}
+                >
+                  ⚙ 管理面板
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); openLoginModal() }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="font-display rounded-full px-4 py-2 text-[11px] tracking-widest transition hover:brightness-125"
+                style={{
+                  border: `1px solid ${item.accent}`,
+                  color: item.accent,
+                  boxShadow: `0 0 12px ${item.accent}33`,
+                }}
+              >
+                {isConfigured === null ? '…' : isConfigured ? '🔐 管理员登录' : '🔧 首次设置密码'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="font-display text-[10px] tracking-[0.35em]" style={{ color: item.accent }}>
+            联系方式 / CONTACT
+          </div>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {item.contacts.map((c) => (
+              <a
+                key={c.label}
+                href={c.href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between rounded-lg px-3 py-2 transition hover:brightness-125"
+                style={{ border: `1px solid ${item.accent}44`, background: 'rgba(0,0,0,0.25)' }}
+              >
+                <span className="text-[11px] tracking-widest" style={{ color: item.accent }}>
+                  {c.label}
+                </span>
+                <span className="text-[12px]" style={{ color: '#dcefff' }}>
+                  {c.value}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </Panel>
+    </>
   )
 }
 
@@ -217,8 +270,8 @@ function SignatureWallPanel({ item }: { item: Extract<Card, { kind: 'signature' 
   )
 }
 
-export default function DetailView({ item }: { item: Card }) {
+export default function DetailView({ item, slug }: { item: Card; slug: string }) {
   if (item.kind === 'work') return <WorkDetail item={item} />
-  if (item.kind === 'about') return <AboutDetail item={item} />
+  if (item.kind === 'about') return <AboutDetail item={item} slug={slug} />
   return <SignatureWallPanel item={item} />
 }

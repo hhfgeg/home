@@ -64,44 +64,28 @@ export function HUD({ space, itemsCount }: { space: SpaceData; itemsCount: numbe
             </div>
           </div>
 
-          {/* center hint — hidden while a card is focused to avoid overlapping the panel */}
+          {/* center spacer — keeps top/bottom layout */}
+          <div />
+
+          {/* bottom legend — hidden while a card is focused */}
           {!focused && (
-            <div style={{ textAlign: 'center' }}>
-              <div
-                className="animate-pulseGlow"
-                style={{
-                  display: 'inline-block',
-                  fontSize: 12,
-                  letterSpacing: 4,
-                  padding: '6px 14px',
-                  borderRadius: 999,
-                  border: `1px solid ${primary}59`,
-                  background: 'rgba(8,12,26,0.5)',
-                  backdropFilter: 'blur(6px)',
-                }}
-              >
-                拖拽旋转 · 滚轮缩放 · 点击卡片聚焦
-              </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 16,
+                fontSize: 9,
+                letterSpacing: 2,
+                opacity: 0.35,
+              }}
+            >
+              <span>拖拽 · 旋转</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span>滚轮 · 缩放</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span>点击 · 聚焦卡片</span>
             </div>
           )}
-
-          {/* bottom legend */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: 18,
-              fontSize: 9,
-              letterSpacing: 3,
-              opacity: 0.45,
-            }}
-          >
-            <span>DRAG · 旋转</span>
-            <span style={{ opacity: 0.4 }}>|</span>
-            <span>SCROLL · 缩放</span>
-            <span style={{ opacity: 0.4 }}>|</span>
-            <span>CLICK · 聚焦</span>
-          </div>
         </div>
       </Html>
     </group>

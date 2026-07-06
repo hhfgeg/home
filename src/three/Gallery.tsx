@@ -456,7 +456,7 @@ const tmp = new THREE.Vector3()
 const CARD_GEOM = new RoundedBoxGeometry(CARD_W + 0.14, CARD_H + 0.14, 0.06, 5, 0.02)
 const CARD_EDGES = new THREE.EdgesGeometry(CARD_GEOM, 25)
 
-function GalleryCard({ item, index }: { item: Card; index: number }) {
+function GalleryCard({ item, index, slug }: { item: Card; index: number; slug: string }) {
   const focusedId = useStore((s) => s.focusedId)
   const setFocused = useStore((s) => s.setFocused)
   const signatures = useStore((s) => s.signatures)
@@ -544,7 +544,7 @@ function GalleryCard({ item, index }: { item: Card; index: number }) {
           <planeGeometry args={[CARD_W + 0.16, CARD_H + 0.16]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
-        {focusedId === item.id && <DetailView item={item} />}
+        {focusedId === item.id && <DetailView item={item} slug={slug} />}
       </group>
     </group>
   )
@@ -557,7 +557,7 @@ function dampAngle(cur: number, target: number, lambda: number, dt: number) {
   return cur + t * (1 - Math.exp(-lambda * dt))
 }
 
-export default function Gallery({ items }: { items: Card[] }) {
+export default function Gallery({ items, slug }: { items: Card[]; slug: string }) {
   const group = useRef<THREE.Group>(null)
   const focusedId = useStore((s) => s.focusedId)
   const N = items.length
@@ -581,7 +581,7 @@ export default function Gallery({ items }: { items: Card[] }) {
         const ang = (i / N) * Math.PI * 2
         return (
           <group key={it.id} position={[R * Math.sin(ang), 0, R * Math.cos(ang)]} rotation-y={ang}>
-            <GalleryCard item={it} index={i} />
+            <GalleryCard item={it} index={i} slug={slug} />
           </group>
         )
       })}

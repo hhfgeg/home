@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate, useParams, Link } from 'react-r
 import Scene from './three/Scene'
 import { loadSpace, DEFAULT_SLUG, type SpaceData } from './data'
 import type { Card } from './data'
+import { useStore } from './store'
+import LoginModal from './components/LoginModal'
+import AdminPanel from './components/AdminPanel'
 
 function NotFound({ slug }: { slug: string }) {
   return (
@@ -59,30 +62,28 @@ function SpacePage() {
   const [space, setSpace] = useState<SpaceData | null>(() => loadSpace(slug))
   const [loading, setLoading] = useState(!space)
 
+  const showLoginModal = useStore((s) => s.showLoginModal)
+  const closeLoginModal = useStore((s) => s.closeLoginModal)
+  const isConfigured = useStore((s) => s.isConfigured)
+  const showAdminPanel = useStore((s) => s.showAdminPanel)
+  const closeAdminPanel = useStore((s) => s.closeAdminPanel)
+  const adminSlug = useStore((s) => s.adminSlug)
+
   useEffect(() => {
-    // 构建时 glob 已加载到数据，直接使用
     const builtin = loadSpace(slug)
     if (builtin) {
       setSpace(builtin)
       setLoading(false)
       return
     }
-
-    // 兜底：从服务端 API 实时读取（适用于 Docker 等构建时 glob 失效的环境）
     let cancelled = false
     setLoading(true)
     fetch(`/api/space/${slug}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: SpaceData & { items: Card[] }) => {
-        if (!cancelled) {
-          setSpace(data)
-          setLoading(false)
-        }
+        if (!cancelled) { setSpace(data); setLoading(false) }
       })
-      .catch(() => {
-        if (!cancelled) setLoading(false)
-      })
-
+      .catch(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [slug])
 
@@ -92,19 +93,8 @@ function SpacePage() {
 
   if (loading) {
     return (
-      <div
-        style={{
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#22e3ff',
-          background: '#04050b',
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 13,
-          letterSpacing: 2,
-        }}
-      >
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#22e3ff', background: '#04050b', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, letterSpacing: 2 }}>
         加载中…
       </div>
     )
@@ -112,7 +102,29 @@ function SpacePage() {
 
   if (!space) return <NotFound slug={slug} />
 
-  return <Scene space={space} items={space.items} />
+  const accent = space.theme?.primary || '#22e3ff'
+
+  return (
+    <>
+      <Scene space={space} items={space.items} />
+
+      {/* 模态窗在 Canvas 外部渲染，避免 R3F 把 DOM 元素当 Three.js 对象 */}
+      {showLoginModal && (
+        <LoginModal
+          onClose={closeLoginModal}
+          isSetup={!isConfigured}
+          accent={accent}
+        />
+      )}
+      {showAdminPanel && (
+        <AdminPanel
+          slug={adminSlug}
+          accent={accent}
+          onClose={closeAdminPanel}
+        />
+      )}
+    </>
+  )
 }
 
 export default function App() {

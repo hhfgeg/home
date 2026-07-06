@@ -35,6 +35,7 @@ export default function Scene({ space, items }: { space: SpaceData; items: Card[
   const focused = useStore((s) => s.focusedId)
   const setFocused = useStore((s) => s.setFocused)
   const loadSignatures = useStore((s) => s.loadSignatures)
+  const modalOpen = useStore((s) => s.modalOpen)
   const controls = useRef<any>(null)
   const R = galleryRadius(items.length)
 
@@ -49,8 +50,9 @@ export default function Scene({ space, items }: { space: SpaceData; items: Card[
       camera={{ position: [0, 1.8, R + 9.2], fov: 42 }}
       gl={{ antialias: true }}
       onPointerMissed={() => {
-        // 签名墙为沉浸式交互区域，点击空白不自动退出，仅靠返回按钮关闭，
-        // 避免点击靠边区域误触退出
+        // 模态窗/管理面板打开时，不退焦
+        if (modalOpen) return
+        // 签名墙为沉浸式交互区域，点击空白不自动退出，仅靠返回按钮关闭
         if (focused) {
           const card = items.find((i) => i.id === focused)
           if (card && card.kind === 'signature') return
@@ -62,7 +64,7 @@ export default function Scene({ space, items }: { space: SpaceData; items: Card[
       <fog attach="fog" args={['#04050b', R + 5, R + 42]} />
       <Suspense fallback={null}>
         <Effects />
-        <Gallery items={items} />
+        <Gallery items={items} slug={space.slug} />
       </Suspense>
       <CameraRig controlsRef={controls} count={items.length} />
       <OrbitControls

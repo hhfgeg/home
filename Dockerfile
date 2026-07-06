@@ -20,13 +20,13 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# 复制构建产物 + package.json（确保 ESM 模块识别）+ 服务端 + 数据
+# 复制构建产物 + package.json（确保 ESM 模块识别）+ 服务端
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
 COPY server.mjs .
 
-# 复制数据目录（运行时 server.mjs 提供 API 读取）
-COPY --from=builder /app/data ./data
+# 运行时数据目录（启动时由 server.mjs 按需初始化）
+RUN mkdir -p /app/data
 
 EXPOSE 80
 
