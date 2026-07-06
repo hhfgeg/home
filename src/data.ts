@@ -75,7 +75,7 @@ export const DEFAULT_SLUG = 'yunzhongshu'
  * 每个文件形如 `data/<slug>.json`，其 slug 即为 URL 路径参数。
  * 新增空间只需在 data 目录放入对应 JSON，无需改动代码。
  */
-const modules = import.meta.glob('/data/*.json', { eager: true }) as Record<
+const modules = import.meta.glob('../data/*.json', { eager: true }) as Record<
   string,
   { default: SpaceData }
 >
@@ -83,7 +83,6 @@ const modules = import.meta.glob('/data/*.json', { eager: true }) as Record<
 const spaces: Record<string, SpaceData> = {}
 for (const [path, mod] of Object.entries(modules)) {
   const slug = path.match(/\/([^/]+)\.json$/)?.[1]
-  // 过滤形如 <slug>.signatures 的辅助数据文件，只保留空间主文件
   if (slug && mod.default && !slug.includes('.')) {
     spaces[slug] = mod.default
   }

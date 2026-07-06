@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useParams, Link } from 'react-router-dom'
 import Scene from './three/Scene'
-import { loadSpace, DEFAULT_SLUG } from './data'
+import { loadSpace, DEFAULT_SLUG, type SpaceData } from './data'
+import type { Card } from './data'
 
 function NotFound({ slug }: { slug: string }) {
   return (
@@ -55,11 +56,59 @@ function NotFound({ slug }: { slug: string }) {
 
 function SpacePage() {
   const { slug = DEFAULT_SLUG } = useParams()
-  const space = loadSpace(slug)
+  const [space, setSpace] = useState<SpaceData | null>(() => loadSpace(slug))
+  const [loading, setLoading] = useState(!space)
+
+  useEffect(() => {
+    // 构建时 glob 已加载到数据，直接使用
+    const builtin = loadSpace(slug)
+    if (builtin) {
+      setSpace(builtin)
+      setLoading(false)
+      return
+    }
+
+    // 兜底：从服务端 API 实时读取（适用于 Docker 等构建时 glob 失效的环境）
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/space/${slug}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((data: SpaceData & { items: Card[] }) => {
+        if (!cancelled) {
+          setSpace(data)
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [slug])
 
   useEffect(() => {
     if (space) document.title = space.title
   }, [slug, space])
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#22e3ff',
+          background: '#04050b',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 13,
+          letterSpacing: 2,
+        }}
+      >
+        加载中…
+      </div>
+    )
+  }
 
   if (!space) return <NotFound slug={slug} />
 

@@ -81,6 +81,30 @@ function streamFile(res, filePath) {
   fs.createReadStream(filePath).pipe(res);
 }
 
+// ---- API：空间数据 -----------------------------------------------
+/** 列出所有可用的空间 slug */
+function handleListSpaces(res) {
+  try {
+    const files = fs.readdirSync(DATA_DIR);
+    const slugs = files
+      .filter((f) => f.endsWith('.json') && !f.includes('.signatures') && !f.includes('.tmp'))
+      .map((f) => f.replace(/\.json$/, ''));
+    return jsonResponse(res, { slugs, default: DATA_FALLBACK_SLUG });
+  } catch {
+    return jsonResponse(res, { slugs: [DATA_FALLBACK_SLUG], default: DATA_FALLBACK_SLUG });
+  }
+}
+
+/** 返回完整空间数据（实时读取文件，非构建时嵌入） */
+function handleSpaceData(res, slug) {
+  const safeSlug = slug || DATA_FALLBACK_SLUG;
+  const data = readSpaceData(safeSlug);
+  if (!data) {
+    return jsonResponse(res, { error: `空间不存在：${safeSlug}` }, 404);
+  }
+  return jsonResponse(res, data);
+}
+
 // ---- API：签名墙 -------------------------------------------------
 /** 从空间数据文件中加载/保存签名，不再使用独立 .signatures.json 文件 */
 async function handleSignatures(req, res, slug) {
@@ -124,9 +148,21 @@ const server = http.createServer((req, res) => {
   const method = req.method || 'GET';
 
   // ---------- API 路由 ----------
-  const apiMatch = url.match(/^\/api\/signatures\/([^/?]+)/);
-  if (apiMatch) {
-    return void handleSignatures(req, res, apiMatch[1]);
+  // GET /api/spaces — 列出所有空间
+  if (url === '/api/spaces' && method === 'GET') {
+    return void handleListSpaces(res);
+  }
+
+  // GET /api/space/:slug — 读取完整空间数据（实时）
+  const spaceMatch = url.match(/^\/api\/space\/([^/?]+)/);
+  if (spaceMatch && method === 'GET') {
+    return void handleSpaceData(res, spaceMatch[1]);
+  }
+
+  // GET/POST /api/signatures/:slug — 签名墙
+  const sigMatch = url.match(/^\/api\/signatures\/([^/?]+)/);
+  if (sigMatch) {
+    return void handleSignatures(req, res, sigMatch[1]);
   }
 
   // ---------- 静态文件 ----------
@@ -162,5 +198,10 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
   console.log(`   Static:  ${DIST_DIR}`);
-  console.log(`   API:     /api/signatures/:slug`);
+  console.log(`   Data:    ${DATA_DIR}`);
+  console.log(`   API:`);
+  console.log(`     GET  /api/spaces              → 列出所有空间`);
+  console.log(`     GET  /api/space/:slug         → 实时读取空间数据`);
+  console.log(`     GET  /api/signatures/:slug    → 读取签名墙`);
+  console.log(`     POST /api/signatures/:slug    → 提交签名`);
 });
