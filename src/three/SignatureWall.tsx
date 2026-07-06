@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { useStore, type Signature } from '../store'
+import { useStore, sigSvg, type Signature } from '../store'
 import { DEFAULT_SLUG } from '../data'
 
 const COLORS = ['#22e3ff', '#ff3df0', '#9dff3d', '#8b5cff', '#ffffff']
@@ -82,13 +82,25 @@ export default function SignatureWall() {
   async function submit() {
     if (!composer) return
     const c = padRef.current!
-    const img = c.toDataURL('image/png')
+    const ctx = c.getContext('2d')!
+    // 检测是否存在手写笔迹（非透明像素）
+    const data = ctx.getImageData(0, 0, c.width, c.height).data
+    let hasInk = false
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] !== 0) {
+        hasInk = true
+        break
+      }
+    }
+    const finalName = name.trim() || '匿名'
+    // 只输入名字、未手写时，按 mock 数据样式生成签名
+    const img = hasInk ? c.toDataURL('image/png') : sigSvg(finalName, color)
     await addSignature(slug, {
       x: composer.x,
       y: composer.y,
       rot: Math.random() * 16 - 8,
       img,
-      name: name.trim() || '匿名',
+      name: finalName,
       comment: comment.trim(),
       color,
     })

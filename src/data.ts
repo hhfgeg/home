@@ -41,6 +41,16 @@ export type Card =
 export const CARD_W = 3.9
 export const CARD_H = 2.19375 // 16:9
 
+/**
+ * 根据卡片数量计算展示圆半径，避免作品增多时卡片折叠拥挤。
+ * 保证相邻卡片弧长至少为卡片宽度的 factor 倍（含间隙）。
+ */
+export function galleryRadius(count: number): number {
+  const min = 6.8
+  const factor = 1.8
+  return Math.max(min, (CARD_W * factor * count) / (2 * Math.PI))
+}
+
 export type SpaceTheme = {
   primary: string
   secondary: string
