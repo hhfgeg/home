@@ -77,7 +77,7 @@ export const useStore = create<State>()(
         })),
     }),
     {
-      name: 'nexus-signature-wall',
+      name: 'yunzhongshu-signature-wall',
       partialize: (s) => ({ signatures: s.signatures }),
     }
   )

@@ -3,13 +3,16 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { useStore } from '../store'
+import { type SpaceData } from '../data'
 
 /** A heads-up overlay that floats in 3D space just in front of the camera. */
-export function HUD() {
+export function HUD({ space, itemsCount }: { space: SpaceData; itemsCount: number }) {
   const ref = useRef<THREE.Group>(null)
   const fwd = useRef(new THREE.Vector3())
   const { camera } = useThree()
   const focused = useStore((s) => s.focusedId)
+  const primary = space.theme.primary
+  const countStr = String(itemsCount).padStart(2, '0')
 
   useFrame(() => {
     if (!ref.current) return
@@ -37,12 +40,12 @@ export function HUD() {
             <div className="font-display" style={{ lineHeight: 1.1 }}>
               <div
                 className="neon-text"
-                style={{ fontSize: 26, fontWeight: 900, letterSpacing: 4, color: '#22e3ff' }}
+                style={{ fontSize: 26, fontWeight: 900, letterSpacing: 4, color: primary }}
               >
-                NEXUS
+                {space.brand}
               </div>
               <div style={{ fontSize: 10, letterSpacing: 6, opacity: 0.6, marginTop: 2 }}>
-                AI CREATIVE GALLERY
+                {space.subtitle}
               </div>
             </div>
             <div
@@ -52,12 +55,12 @@ export function HUD() {
                 letterSpacing: 3,
                 opacity: 0.5,
                 textAlign: 'right',
-                borderLeft: '1px solid rgba(34,227,255,0.3)',
+                borderLeft: `1px solid ${primary}4D`,
                 paddingLeft: 12,
               }}
             >
-              <div>SYS // ONLINE</div>
-              <div style={{ color: '#9dff3d', marginTop: 2 }}>● NODES 08</div>
+              <div>{space.studio}</div>
+              <div style={{ color: '#9dff3d', marginTop: 2 }}>● 作品 {countStr}</div>
             </div>
           </div>
 
@@ -72,7 +75,7 @@ export function HUD() {
                   letterSpacing: 4,
                   padding: '6px 14px',
                   borderRadius: 999,
-                  border: '1px solid rgba(34,227,255,0.35)',
+                  border: `1px solid ${primary}59`,
                   background: 'rgba(8,12,26,0.5)',
                   backdropFilter: 'blur(6px)',
                 }}

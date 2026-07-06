@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { RoundedBox } from '@react-three/drei'
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import * as THREE from 'three'
 import { Glow } from './effects'
 import DetailView from './DetailView'
@@ -124,6 +124,25 @@ function drawFace(ctx: CanvasRenderingContext2D, item: Card, img?: HTMLImageElem
   ctx.textBaseline = 'alphabetic'
 }
 
+function makeSheenTexture() {
+  const c = document.createElement('canvas')
+  c.width = CW
+  c.height = CH
+  const ctx = c.getContext('2d')!
+  const g = ctx.createLinearGradient(0, 0, CW, CH)
+  g.addColorStop(0, 'rgba(255,255,255,0.55)')
+  g.addColorStop(0.22, 'rgba(255,255,255,0.16)')
+  g.addColorStop(0.5, 'rgba(255,255,255,0)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, CW, CH)
+  const t = new THREE.CanvasTexture(c)
+  t.colorSpace = THREE.SRGBColorSpace
+  return t
+}
+
+const SHEEN_TEX = makeSheenTexture()
+
 function makeTexture(item: Card) {
   const c = document.createElement('canvas')
   c.width = CW
@@ -169,6 +188,10 @@ function useCardFace(item: Card) {
 
 const tmp = new THREE.Vector3()
 
+/** 卡片玻璃薄片几何体（圆角盒）与发光描边，模块级共享以保证边框与底板完全对齐 */
+const CARD_GEOM = new RoundedBoxGeometry(CARD_W + 0.14, CARD_H + 0.14, 0.06, 5, 0.02)
+const CARD_EDGES = new THREE.EdgesGeometry(CARD_GEOM, 25)
+
 function GalleryCard({ item, index }: { item: Card; index: number }) {
   const focusedId = useStore((s) => s.focusedId)
   const setFocused = useStore((s) => s.setFocused)
@@ -177,6 +200,10 @@ function GalleryCard({ item, index }: { item: Card; index: number }) {
   const tex = useCardFace(item)
   const accent = item.accent
   const dim = !!focusedId && focusedId !== item.id
+  const glassOp = dim ? 0.16 : hovered ? 0.34 : 0.26
+  const edgeOp = dim ? 0.4 : hovered ? 1 : 0.85
+  const posterOp = dim ? 0.5 : hovered ? 0.97 : 0.9
+  const sheenOp = dim ? 0.04 : hovered ? 0.3 : 0.16
 
   useFrame((state, dt) => {
     const g = ref.current
@@ -193,13 +220,45 @@ function GalleryCard({ item, index }: { item: Card; index: number }) {
     <group>
       <Glow size={3.6} color={accent} opacity={dim ? 0.12 : 0.4} position={[0, 0, -0.06]} />
       <group ref={ref}>
-        <RoundedBox args={[CARD_W + 0.14, CARD_H + 0.14, 0.12]} radius={0.06} smoothness={4}>
-          <meshBasicMaterial color={accent} toneMapped={false} transparent opacity={dim ? 0.4 : 1} />
-        </RoundedBox>
-        <mesh position={[0, 0, 0.07]}>
-          <planeGeometry args={[CARD_W, CARD_H]} />
-          <meshBasicMaterial map={tex} toneMapped={false} transparent opacity={dim ? 0.45 : 1} />
+        {/* 玻璃薄片底板 */}
+        <mesh geometry={CARD_GEOM}>
+          <meshPhysicalMaterial
+            color={accent}
+            transparent
+            opacity={glassOp}
+            roughness={0.1}
+            metalness={0.35}
+            clearcoat={1}
+            clearcoatRoughness={0.18}
+            side={THREE.DoubleSide}
+            toneMapped={false}
+          />
         </mesh>
+        {/* 发光描边：与底板共享同一几何体，杜绝错位 */}
+        <lineSegments geometry={CARD_EDGES}>
+          <lineBasicMaterial color={accent} transparent opacity={edgeOp} toneMapped={false} />
+        </lineSegments>
+
+        {/* 海报贴图面 */}
+        <mesh position={[0, 0, 0.035]}>
+          <planeGeometry args={[CARD_W, CARD_H]} />
+          <meshBasicMaterial map={tex} toneMapped={false} transparent opacity={posterOp} />
+        </mesh>
+
+        {/* 玻璃对角光泽 */}
+        <mesh position={[0, 0, 0.045]}>
+          <planeGeometry args={[CARD_W, CARD_H]} />
+          <meshBasicMaterial
+            map={SHEEN_TEX}
+            transparent
+            opacity={sheenOp}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+
+        {/* 交互面 */}
         <mesh
           position={[0, 0, 0.085]}
           onPointerOver={(e) => {

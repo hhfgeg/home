@@ -6,7 +6,7 @@ import { Effects } from './effects'
 import Gallery from './Gallery'
 import { HUD } from './ui'
 import { useStore } from '../store'
-import { items } from '../data'
+import { type SpaceData, type Card } from '../data'
 
 function CameraRig({ controlsRef }: { controlsRef: React.MutableRefObject<any> }) {
   const focused = useStore((s) => s.focusedId)
@@ -24,7 +24,7 @@ function CameraRig({ controlsRef }: { controlsRef: React.MutableRefObject<any> }
   return null
 }
 
-export default function Scene() {
+export default function Scene({ space, items }: { space: SpaceData; items: Card[] }) {
   const focused = useStore((s) => s.focusedId)
   const setFocused = useStore((s) => s.setFocused)
   const controls = useRef<any>(null)
@@ -56,7 +56,7 @@ export default function Scene() {
         maxPolarAngle={1.5}
         makeDefault
       />
-      <HUD />
+      <HUD space={space} itemsCount={items.length} />
     </Canvas>
   )
 }

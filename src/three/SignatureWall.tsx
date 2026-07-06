@@ -124,7 +124,7 @@ export default function SignatureWall() {
         />
         <div className="absolute inset-0 flex items-center justify-center" style={{ pointerEvents: 'none' }}>
           <div className="text-center" style={{ color: 'rgba(207,239,255,0.32)' }}>
-            <div className="font-display text-2xl tracking-widest">SIGNATURE WALL</div>
+            <div className="font-display text-2xl tracking-widest">签名墙</div>
             <div className="text-[11px] mt-2 tracking-widest">点击任意位置 · 手写签名 · 留下评论</div>
           </div>
         </div>
