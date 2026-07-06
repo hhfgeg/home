@@ -34,7 +34,15 @@ export default function Scene({ space, items }: { space: SpaceData; items: Card[
       dpr={[1, 2]}
       camera={{ position: [0, 1.8, 16], fov: 42 }}
       gl={{ antialias: true }}
-      onPointerMissed={() => setFocused(null)}
+      onPointerMissed={() => {
+        // 签名墙为沉浸式交互区域，点击空白不自动退出，仅靠返回按钮关闭，
+        // 避免点击靠边区域误触退出
+        if (focused) {
+          const card = items.find((i) => i.id === focused)
+          if (card && card.kind === 'signature') return
+        }
+        setFocused(null)
+      }}
     >
       <color attach="background" args={['#04050b']} />
       <fog attach="fog" args={['#04050b', 12, 48]} />

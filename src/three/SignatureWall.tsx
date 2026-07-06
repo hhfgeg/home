@@ -1,10 +1,14 @@
 import { useRef, useState, useEffect } from 'react'
+import { useParams } from 'react-router-dom'
 import { useStore, type Signature } from '../store'
+import { DEFAULT_SLUG } from '../data'
 
 const COLORS = ['#22e3ff', '#ff3df0', '#9dff3d', '#8b5cff', '#ffffff']
 
 export default function SignatureWall() {
+  const { slug = DEFAULT_SLUG } = useParams()
   const signatures = useStore((s) => s.signatures)
+  const loadSignatures = useStore((s) => s.loadSignatures)
   const addSignature = useStore((s) => s.addSignature)
   const wallRef = useRef<HTMLDivElement>(null)
   const padRef = useRef<HTMLCanvasElement>(null)
@@ -20,6 +24,10 @@ export default function SignatureWall() {
   useEffect(() => {
     colorRef.current = color
   }, [color])
+
+  useEffect(() => {
+    loadSignatures(slug)
+  }, [slug, loadSignatures])
 
   useEffect(() => {
     if (composer) {
@@ -71,11 +79,11 @@ export default function SignatureWall() {
     last.current = null
   }
 
-  function submit() {
+  async function submit() {
     if (!composer) return
     const c = padRef.current!
     const img = c.toDataURL('image/png')
-    addSignature({
+    await addSignature(slug, {
       x: composer.x,
       y: composer.y,
       rot: Math.random() * 16 - 8,
@@ -153,29 +161,41 @@ export default function SignatureWall() {
                 filter: `drop-shadow(0 0 5px ${s.color}) drop-shadow(0 0 10px ${s.color})`,
               }}
             />
-            {hover === s.id && (
-              <div
-                className="glass absolute bottom-full left-1/2 mb-2 -translate-x-1/2"
-                style={{
-                  pointerEvents: 'none',
-                  width: 210,
-                  padding: '8px 10px',
-                  borderRadius: 10,
-                  border: `1px solid ${s.color}88`,
-                  boxShadow: `0 0 18px ${s.color}55`,
-                  transform: 'translate(-50%, 0)',
-                }}
-              >
-                <div className="font-display text-xs" style={{ color: s.color }}>
-                  {s.name}
-                </div>
-                <div className="text-[11px] mt-1" style={{ color: '#dcefff' }}>
-                  {s.comment || '（未留下评论）'}
-                </div>
-              </div>
-            )}
           </div>
         ))}
+
+        {hover && (() => {
+          const s = signatures.find((x) => x.id === hover)
+          if (!s) return null
+          // 靠上签名 -> tooltip 在下方，否则在上方，避免被墙顶裁剪
+          const above = s.y > 35
+          return (
+            <div
+              className="glass"
+              style={{
+                position: 'absolute',
+                // 水平方向用 clamp 约束在墙内，杜绝左右边缘遮挡
+                left: `clamp(0px, calc(${s.x}% - 105px), calc(100% - 210px))`,
+                top: above ? `calc(${s.y}% - 60px)` : `calc(${s.y}% + 50px)`,
+                transform: above ? 'translateY(-100%)' : 'translateY(0)',
+                width: 210,
+                padding: '8px 10px',
+                borderRadius: 10,
+                border: `1px solid ${s.color}88`,
+                boxShadow: `0 0 18px ${s.color}55`,
+                pointerEvents: 'none',
+                zIndex: 30,
+              }}
+            >
+              <div className="font-display text-xs" style={{ color: s.color }}>
+                {s.name}
+              </div>
+              <div className="text-[11px] mt-1" style={{ color: '#dcefff' }}>
+                {s.comment || '（未留下评论）'}
+              </div>
+            </div>
+          )
+        })()}
 
         {composer && (
           <div

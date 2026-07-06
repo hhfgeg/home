@@ -38,8 +38,8 @@ export type Card =
       accent: string
     }
 
-export const CARD_W = 2.6
-export const CARD_H = 1.4625 // 16:9
+export const CARD_W = 3.9
+export const CARD_H = 2.19375 // 16:9
 
 export type SpaceTheme = {
   primary: string
@@ -73,7 +73,8 @@ const modules = import.meta.glob('/data/*.json', { eager: true }) as Record<
 const spaces: Record<string, SpaceData> = {}
 for (const [path, mod] of Object.entries(modules)) {
   const slug = path.match(/\/([^/]+)\.json$/)?.[1]
-  if (slug && mod.default) {
+  // 过滤形如 <slug>.signatures 的辅助数据文件，只保留空间主文件
+  if (slug && mod.default && !slug.includes('.')) {
     spaces[slug] = mod.default
   }
 }

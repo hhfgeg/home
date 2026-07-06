@@ -218,7 +218,7 @@ function GalleryCard({ item, index }: { item: Card; index: number }) {
 
   return (
     <group>
-      <Glow size={3.6} color={accent} opacity={dim ? 0.12 : 0.4} position={[0, 0, -0.06]} />
+      <Glow size={5.4} color={accent} opacity={dim ? 0.12 : 0.4} position={[0, 0, -0.06]} />
       <group ref={ref}>
         {/* 玻璃薄片底板 */}
         <mesh geometry={CARD_GEOM}>
