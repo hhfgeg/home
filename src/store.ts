@@ -29,9 +29,9 @@ type State = {
   setFocused: (id: string | null) => void
   signatures: Signature[]
   loading: boolean
-  /** 按 slug 从 data/<slug>.signatures.json 加载签名 */
+  /** 按 slug 从 data/<slug>.json 的 signatures 字段加载签名 */
   loadSignatures: (slug: string) => Promise<void>
-  /** 追加签名并写回 data/<slug>.signatures.json */
+  /** 追加签名并写回 data/<slug>.json */
   addSignature: (slug: string, s: Omit<Signature, 'id' | 'ts'>) => Promise<void>
 }
 

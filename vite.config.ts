@@ -5,9 +5,9 @@ import path from 'path'
 
 /**
  * Dev middleware：签名墙数据的读写接口。
- *   GET  /api/signatures/:slug  -> 读取 data/<slug>.signatures.json
- *   POST /api/signatures/:slug  -> 追加一条签名并写回文件
- * 新增签名会持久化到 data 目录，与空间数据共同作为数据源。
+ *   GET  /api/signatures/:slug  -> 读取 data/<slug>.json 的 signatures 字段
+ *   POST /api/signatures/:slug  -> 追加一条签名到 data/<slug>.json 并写回
+ * 签名数据与空间数据共同存储在同一 JSON 文件中。
  */
 function signaturesApi() {
   return {
@@ -19,21 +19,25 @@ function signaturesApi() {
 
         const m = url.match(/^\/api\/signatures\/([^/?]+)/)
         const slug = m ? m[1] : 'yunzhongshu'
-        const file = path.resolve(process.cwd(), 'data', `${slug}.signatures.json`)
+        const dataDir = path.resolve(process.cwd(), 'data')
+        const jsonFile = path.join(dataDir, `${slug}.json`)
 
-        const readAll = async (): Promise<any[]> => {
+        const readSpace = async (): Promise<Record<string, any>> => {
           try {
-            const data = await fs.promises.readFile(file, 'utf-8')
-            return JSON.parse(data)
+            const raw = await fs.promises.readFile(jsonFile, 'utf-8')
+            return JSON.parse(raw)
           } catch {
-            return []
+            return {}
           }
         }
 
+        const getSignatures = (data: Record<string, any>): any[] =>
+          Array.isArray(data['signatures']) ? data['signatures'] : []
+
         if (req.method === 'GET') {
-          const arr = await readAll()
+          const data = await readSpace()
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify(arr))
+          res.end(JSON.stringify(getSignatures(data)))
           return
         }
 
@@ -43,16 +47,18 @@ function signaturesApi() {
           req.on('end', async () => {
             try {
               const incoming = JSON.parse(body)
-              const arr = await readAll()
-              arr.push({
+              const data = await readSpace()
+              const sigs = getSignatures(data)
+              sigs.push({
                 ...incoming,
                 id: `sig-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 ts: Date.now(),
               })
-              await fs.promises.mkdir(path.dirname(file), { recursive: true })
-              await fs.promises.writeFile(file, JSON.stringify(arr, null, 2))
+              data['signatures'] = sigs
+              await fs.promises.mkdir(dataDir, { recursive: true })
+              await fs.promises.writeFile(jsonFile, JSON.stringify(data, null, 2))
               res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify(arr))
+              res.end(JSON.stringify(sigs))
             } catch (e) {
               res.statusCode = 500
               res.end(JSON.stringify({ error: String(e) }))

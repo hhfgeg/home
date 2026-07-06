@@ -11,7 +11,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FALLBACK_SLUG = 'yunzhongshu';
 
 // ---- MIME 映射 --------------------------------------------------
-const MIME: Record<string, string> = {
+const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
@@ -29,29 +29,43 @@ const MIME: Record<string, string> = {
 };
 
 // ---- 工具函数 ----------------------------------------------------
-function readJSON(filePath: string): unknown[] {
+/** 读取空间数据文件，若不存在返回 null */
+function readSpaceData(slug) {
+  const filePath = path.join(DATA_DIR, `${slug}.json`);
   try {
     const raw = fs.readFileSync(filePath, 'utf-8');
     return JSON.parse(raw);
   } catch {
-    return [];
+    return null;
   }
 }
 
-async function readBody(req: http.IncomingMessage): Promise<string> {
+/** 写入空间数据文件 */
+async function writeSpaceData(slug, data) {
+  const filePath = path.join(DATA_DIR, `${slug}.json`);
+  await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+/** 获取签名数组（安全返回，签名字段不存在时返回 []） */
+function getSignatures(data) {
+  const sigs = data['signatures'];
+  return Array.isArray(sigs) ? sigs : [];
+}
+
+async function readBody(req) {
   return new Promise((resolve) => {
     let body = '';
-    req.on('data', (chunk: Buffer) => (body += chunk.toString()));
+    req.on('data', (chunk) => (body += chunk.toString()));
     req.on('end', () => resolve(body));
   });
 }
 
-function jsonResponse(res: http.ServerResponse, data: unknown, status = 200) {
+function jsonResponse(res, data, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data));
 }
 
-function streamFile(res: http.ServerResponse, filePath: string) {
+function streamFile(res, filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const mime = MIME[ext] || 'application/octet-stream';
 
@@ -68,34 +82,33 @@ function streamFile(res: http.ServerResponse, filePath: string) {
 }
 
 // ---- API：签名墙 -------------------------------------------------
-async function handleSignatures(
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
-  slug: string,
-) {
+/** 从空间数据文件中加载/保存签名，不再使用独立 .signatures.json 文件 */
+async function handleSignatures(req, res, slug) {
   const safeSlug = slug || DATA_FALLBACK_SLUG;
-  const file = path.join(DATA_DIR, `${safeSlug}.signatures.json`);
 
   // 确保 data 目录存在
   await fs.promises.mkdir(DATA_DIR, { recursive: true });
 
   if (req.method === 'GET') {
-    const arr = readJSON(file);
-    return jsonResponse(res, arr);
+    const data = readSpaceData(safeSlug);
+    const sigs = data ? getSignatures(data) : [];
+    return jsonResponse(res, sigs);
   }
 
   if (req.method === 'POST') {
     try {
       const body = await readBody(req);
       const incoming = JSON.parse(body);
-      const arr = readJSON(file);
-      arr.push({
+      const data = readSpaceData(safeSlug) || {};
+      const sigs = getSignatures(data);
+      sigs.push({
         ...incoming,
         id: `sig-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         ts: Date.now(),
       });
-      await fs.promises.writeFile(file, JSON.stringify(arr, null, 2));
-      return jsonResponse(res, arr);
+      data['signatures'] = sigs;
+      await writeSpaceData(safeSlug, data);
+      return jsonResponse(res, sigs);
     } catch (e) {
       return jsonResponse(res, { error: String(e) }, 500);
     }
