@@ -35,7 +35,7 @@ const cardColors = [
   0xadd8e6, 0x9ad0e0, 0x7ec8e3, 0x8dd4e8
 ]
 function getCardColor(index: number): number {
-  return cardColors[index % cardColors.length]
+  return cardColors[Math.abs(index) % cardColors.length]!
 }
 
 export interface AuthorInfo {
@@ -70,8 +70,11 @@ export function useGallery3D(
   let cameraYaw = 0
   let cameraPitch = 0
 
+  type FocusType = 'work' | 'about' | 'signature-wall'
   type FocusState = {
-    work: WorkItem
+    type: FocusType
+    work?: WorkItem
+    label?: string
     cardGroup: THREE.Group
     prevPosition: THREE.Vector3
     prevYaw: number; prevPitch: number; prevFov: number
@@ -83,9 +86,13 @@ export function useGallery3D(
   const FOCUS_SPEED = 2.5
   const RESET_SPEED = 3.0
 
-  // Default camera state for reset
+  // References to special cards
+  let aboutGroup: THREE.Group | null = null
+  let signatureTitleGroup: THREE.Group | null = null
+
+  // Default camera state for reset (slightly angled to show left+right walls)
   const defaultPosition = new THREE.Vector3(0, CAMERA_HEIGHT, ROOM_SIZE.depth / 2 - 1)
-  const defaultYaw = 0
+  const defaultYaw = -0.35
   const defaultPitch = 0
   const defaultFov = 70
 
@@ -125,7 +132,13 @@ export function useGallery3D(
 
     camera = new THREE.PerspectiveCamera(70, containerRef.value.clientWidth / containerRef.value.clientHeight, 0.1, 100)
     camera.position.set(0, CAMERA_HEIGHT, ROOM_SIZE.depth / 2 - 1)
-    camera.lookAt(0, CAMERA_HEIGHT, -ROOM_SIZE.depth / 2)
+    // Point slightly left so the about card & signature wall are visible from start
+    cameraYaw = -0.35
+    camera.lookAt(
+      Math.sin(cameraYaw) * 10,
+      CAMERA_HEIGHT,
+      camera.position.z - Math.cos(cameraYaw) * 10
+    )
 
     renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(containerRef.value.clientWidth, containerRef.value.clientHeight)
@@ -145,6 +158,7 @@ export function useGallery3D(
     buildSignatureTitle()
     // Load existing signatures
     signatures.value.forEach(s => addSignatureToWall(s))
+    buildFloorLabels()  // Guide labels on the floor
     buildMarker()
     setupEvents()
     animate()
@@ -419,50 +433,92 @@ export function useGallery3D(
     const fc = document.createElement('canvas')
     fc.width = fw; fc.height = fh
     const ctx = fc.getContext('2d')!
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, fw, fh)
+    // Warm gradient background
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, fh)
+    bgGrad.addColorStop(0, '#ffffff'); bgGrad.addColorStop(0.6, '#faf8f5'); bgGrad.addColorStop(1, '#f5f0eb')
+    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, fw, fh)
 
     const barX = 60
 
-    // Left accent bar
-    ctx.fillStyle = '#87ceeb'; ctx.fillRect(barX, 120, 8, fh - 240)
-    // Top line
-    ctx.fillRect(barX + 30, 80, fw - barX - 120, 3)
+    // Top accent bar with gradient
+    const topGrad = ctx.createLinearGradient(barX + 30, 0, fw - barX - 90, 0)
+    topGrad.addColorStop(0, '#87ceeb'); topGrad.addColorStop(0.5, '#b8dff0'); topGrad.addColorStop(1, '#87ceeb')
+    ctx.fillStyle = topGrad; ctx.fillRect(barX + 30, 70, fw - barX - 120, 4)
 
-    // Avatar circle (left area)
-    ctx.fillStyle = '#e8f0f8'
-    ctx.beginPath(); ctx.arc(barX + 160, fh / 2 - 30, 90, 0, Math.PI * 2); ctx.fill()
+    // Left accent bar (thicker)
+    ctx.fillStyle = '#87ceeb'; ctx.fillRect(barX, 100, 10, fh - 200)
+
+    // === AVATAR ===
+    // Avatar circle
+    ctx.fillStyle = '#e8f4f8'
+    ctx.beginPath(); ctx.arc(barX + 180, 260, 100, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = '#87ceeb'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(barX + 180, 260, 100, 0, Math.PI * 2); ctx.stroke()
+
+    // Avatar initial
     ctx.fillStyle = '#87ceeb'
-    ctx.font = 'bold 80px "Noto Serif SC", serif'
+    ctx.font = 'bold 72px "Noto Serif SC", serif'
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(author.penName.charAt(0), barX + 160, fh / 2 - 30)
+    ctx.fillText(author.penName.charAt(0), barX + 180, 258)
 
-    // Pen name + bio (right of avatar)
-    const tx = barX + 300
+    // === PEN NAME ===
+    const nameX = barX + 330
     ctx.fillStyle = '#1a1520'; ctx.font = 'bold 52px "Noto Serif SC", serif'
     ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-    ctx.fillText(author.penName, tx, 180)
+    ctx.fillText(author.penName, nameX, 168)
 
-    ctx.font = '26px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#555'
-    const bioLines = wrapLines(author.bio, 16)
-    bioLines.slice(0, 2).forEach((line, i) => ctx.fillText(line, tx, 280 + i * 40))
+    // Subtitle
+    ctx.font = '22px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#999'
+    ctx.fillText('AI探索者 · 创意工程师 · 数字叙事者', nameX, 240)
 
-    // Tags
-    ctx.font = '22px "Noto Sans SC", sans-serif'
-    let tagX = tx
-    author.tags.forEach(tag => {
-      const m = ctx.measureText(tag); const tw = m.width + 30
-      ctx.fillStyle = '#e8f4f8'; ctx.fillRect(tagX, 450, tw, 40)
-      ctx.strokeStyle = '#87ceeb40'; ctx.lineWidth = 1; ctx.strokeRect(tagX, 450, tw, 40)
-      ctx.fillStyle = '#5a8a9e'; ctx.fillText(tag, tagX + 15, 456)
-      tagX += tw + 14
+    // === DIVIDER ===
+    ctx.strokeStyle = '#e0dcd5'; ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(nameX, 320); ctx.lineTo(nameX + 700, 320)
+    ctx.stroke()
+
+    // === BIO ===
+    ctx.fillStyle = '#555'; ctx.font = '26px "Noto Sans SC", sans-serif'
+    const bioText = author.bio
+    const bioLines: string[] = []
+    let line = ''
+    for (const ch of bioText) {
+      line += ch
+      if (line.length >= 22) { bioLines.push(line); line = '' }
+    }
+    if (line) bioLines.push(line)
+    bioLines.slice(0, 4).forEach((l, i) => {
+      ctx.fillText(l, nameX, 350 + i * 42)
     })
 
-    // Hint
-    ctx.font = '16px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#bbb'
-    ctx.textAlign = 'right'; ctx.fillText('yunzhongshu.dev', fw - 80, fh - 60)
+    // === TAGS ===
+    const tagY = 580
+    ctx.font = '22px "Noto Sans SC", sans-serif'
+    let tagX = nameX
+    author.tags.forEach(tag => {
+      const m = ctx.measureText(tag); const tw = m.width + 36
+      ctx.fillStyle = '#e8f4f8'; ctx.fillRect(tagX, tagY - 30, tw, 44)
+      ctx.strokeStyle = '#87ceeb60'; ctx.lineWidth = 1; ctx.strokeRect(tagX, tagY - 30, tw, 44)
+      ctx.fillStyle = '#5a8a9e'; ctx.fillText(tag, tagX + 18, tagY - 14)
+      tagX += tw + 16
+    })
 
-    // Bottom accent line
-    ctx.fillStyle = '#87ceeb'; ctx.fillRect(barX + 30, fh - 83, fw - barX - 120, 3)
+    // === CONTACT ===
+    const contactY = 710
+    ctx.font = '20px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#aaa'
+    const contacts: string[] = []
+    if (author.contact?.email) contacts.push('📧 ' + author.contact.email)
+    if (author.contact?.website) contacts.push('🌐 ' + author.contact.website)
+    contacts.forEach((c, i) => ctx.fillText(c, nameX, contactY + i * 36))
+
+    // === CLICK HINT ===
+    ctx.font = '18px "Noto Sans SC", sans-serif'; ctx.fillStyle = '#ccc'
+    ctx.textAlign = 'right'
+    ctx.fillText('🖱 点击查看详情 →', fw - 80, 850)
+
+    // Bottom accent
+    ctx.fillStyle = '#87ceeb'; ctx.fillRect(barX + 30, fh - 74, fw - barX - 120, 3)
+    ctx.textAlign = 'left'
 
     const tex = new THREE.CanvasTexture(fc)
     tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter
@@ -476,8 +532,10 @@ export function useGallery3D(
     // Position on left wall, at z=-6 (left column)
     group.position.set(-width / 2 + 0.2, 0, -6)
     group.rotation.y = Math.PI / 2
-    group.userData = { type: 'about' }
+    group.userData = { type: 'about', clickable: true }
     scene.add(group)
+    clickableObjects.push(group)
+    aboutGroup = group
   }
 
   // ==================================================================
@@ -543,8 +601,46 @@ export function useGallery3D(
     // Position on right wall, at z=-8 (leftmost of 3 columns)
     group.position.set(width / 2 - 0.2, 0, -8)
     group.rotation.y = -Math.PI / 2
-    group.userData = { type: 'signature-wall' }
+    group.userData = { type: 'signature-wall', clickable: true }
     scene.add(group)
+    clickableObjects.push(group)
+    signatureTitleGroup = group
+  }
+
+  // ==================================================================
+  // FLOOR LABELS — guide markers on the floor
+  // ==================================================================
+  function buildFloorLabels() {
+    const { width, height, depth } = ROOM_SIZE
+    const floorY = -height / 2 + 0.03
+
+    function makeLabel(text: string, x: number, z: number, rotZ: number = 0): THREE.Sprite {
+      const c = document.createElement('canvas')
+      c.width = 512; c.height = 128
+      const ctx = c.getContext('2d')!
+      ctx.fillStyle = '#87ceeb'; ctx.font = 'bold 36px "Noto Sans SC", sans-serif'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(text, 256, 64)
+      ctx.fillStyle = 'rgba(135,206,235,0.15)'
+      ctx.fillRect(0, 50, 512, 28)
+
+      const tex = new THREE.CanvasTexture(c)
+      tex.minFilter = THREE.LinearFilter
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: tex, transparent: true, opacity: 0.7, depthWrite: false, depthTest: false
+      }))
+      sprite.position.set(x, floorY, z)
+      sprite.scale.set(6, 1.5, 1)
+      sprite.rotation.z = rotZ
+      return sprite
+    }
+
+    // Left wall — "个人信息 →" pointing right (toward center)
+    scene.add(makeLabel('个人信息 →', -width / 2 + 3, -6, -Math.PI / 2))
+    // Right wall — "← 签名墙" pointing left (toward center)
+    scene.add(makeLabel('← 签名墙', width / 2 - 3, -8, Math.PI / 2))
+    // Back wall — "▲ 作品" at center-back
+    scene.add(makeLabel('▲ 作品', 0, -depth / 2 + 3))
   }
 
   // ==================================================================
@@ -575,17 +671,27 @@ export function useGallery3D(
       // Focus exit
       if (focusState) { exitFocus(); return }
 
-      // Work click → focus
+      // Any clickable card → focus
       const hits = raycaster.intersectObjects(clickableObjects, true)
       if (hits.length > 0) {
-        let obj = hits[0].object
+        let obj: THREE.Object3D | null = hits[0]!.object
         while (obj && (!obj.userData || !obj.userData.type)) obj = obj.parent as THREE.Object3D
         if (obj?.userData?.type === 'work' && obj instanceof THREE.Group) {
-          enterFocus(obj.userData.workData as WorkItem, obj)
+          enterFocus('work', obj, obj.userData.workData as WorkItem)
+          return
+        }
+        if (obj?.userData?.type === 'about' && obj instanceof THREE.Group) {
+          enterFocus('about', obj, undefined, '个人信息')
+          return
+        }
+        if (obj?.userData?.type === 'signature-wall' && obj instanceof THREE.Group) {
+          enterFocus('signature-wall', obj, undefined, '签名墙')
           return
         }
         if (obj?.userData?.type === 'signature') {
-          alert(`${obj.userData.signatureData.name}: ${obj.userData.signatureData.comment}`)
+          // Click on a signature on the wall → show its content
+          const sd = obj.userData.signatureData
+          alert(`${sd.name}: ${sd.comment}`)
           return
         }
       }
@@ -594,7 +700,7 @@ export function useGallery3D(
       if (floorMesh && !focusState) {
         const fhits = raycaster.intersectObject(floorMesh)
         if (fhits.length > 0) {
-          const p = fhits[0].point
+          const p = fhits[0]!.point
           targetPosition = new THREE.Vector3(
             Math.max(roomBounds.minX, Math.min(roomBounds.maxX, p.x)),
             CAMERA_HEIGHT,
@@ -669,10 +775,9 @@ export function useGallery3D(
   // ==================================================================
   // FOCUS
   // ==================================================================
-  function enterFocus(work: WorkItem, cardGroup: THREE.Group) {
+  function enterFocus(type: FocusType, cardGroup: THREE.Group, work?: WorkItem, label?: string) {
     const cardPos = cardGroup.position.clone()
     const cardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, cardGroup.rotation.y, 0)))
-    // Stand back enough to see the full card with wider FOV
     const targetPos = cardPos.clone().add(cardDir.multiplyScalar(3.0))
     targetPos.y = cardPos.y
     targetPos.x = Math.max(roomBounds.minX, Math.min(roomBounds.maxX, targetPos.x))
@@ -680,7 +785,8 @@ export function useGallery3D(
     const targetYaw = Math.atan2(cardPos.x - targetPos.x, -(cardPos.z - targetPos.z))
 
     focusState = {
-      work, cardGroup,
+      type, work, label,
+      cardGroup,
       prevPosition: camera.position.clone(), prevYaw: cameraYaw, prevPitch: cameraPitch, prevFov: camera.fov,
       targetPos, targetYaw, targetPitch: 0, targetFov: 75, progress: 0
     }
@@ -772,22 +878,57 @@ export function useGallery3D(
   // SIGNATURE WALL
   // ==================================================================
   function addSignatureToWall(sig: SignatureItem) {
+    const { width, height } = ROOM_SIZE
     const group = new THREE.Group()
-    const card = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.5), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, side: THREE.DoubleSide }))
-    group.add(card)
+
+    // Small card on the right wall near the signature title area
+    const cardW = 0.45, cardH = 0.6
+    const bg = new THREE.Mesh(
+      new THREE.PlaneGeometry(cardW, cardH),
+      new THREE.MeshBasicMaterial({ color: 0xfafaf5, side: THREE.DoubleSide, depthWrite: false })
+    )
+    group.add(bg)
+
+    // Name label
+    const nameCanvas = document.createElement('canvas')
+    nameCanvas.width = 256; nameCanvas.height = 48
+    const nctx = nameCanvas.getContext('2d')!
+    nctx.fillStyle = '#555'; nctx.font = '18px "Noto Sans SC", sans-serif'
+    nctx.textAlign = 'center'; nctx.fillText(sig.name, 128, 32)
+    const nameTex = new THREE.CanvasTexture(nameCanvas)
+    nameTex.minFilter = THREE.LinearFilter
+    const namePlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(cardW - 0.06, 0.1),
+      new THREE.MeshBasicMaterial({ map: nameTex, transparent: true, depthWrite: false })
+    )
+    namePlane.position.set(0, -cardH / 2 + 0.08, 0.01)
+    group.add(namePlane)
+
+    // Signature image
     const img = new Image()
     img.src = sig.signatureDataUrl
     img.onload = () => {
       const tex = new THREE.CanvasTexture(img as any)
       tex.minFilter = THREE.LinearFilter
-      card.material = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false })
+      tex.magFilter = THREE.LinearFilter
+      bg.material = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide, depthWrite: false })
     }
-    group.position.set(ROOM_SIZE.width / 2 - 0.06, sig.position.y, sig.position.z)
+
+    // Spread signatures on the right wall around the signature title (z=-8)
+    const zRange = 6  // spread width along Z
+    const baseZ = -8
+    let sigZ = baseZ + (sig.position.z % zRange) - zRange / 2
+    let sigY = sig.position.y
+    // Clamp within reasonable range
+    sigZ = Math.max(baseZ - zRange / 2, Math.min(baseZ + zRange / 2, sigZ))
+    sigY = Math.max(-height / 2 + 2, Math.min(height / 2 - 2, sigY))
+
+    group.position.set(width / 2 - 0.06, sigY, sigZ)
     group.rotation.y = -Math.PI / 2
-    card.userData = { type: 'signature', signatureData: sig }
+    bg.userData = { type: 'signature', signatureData: sig }
     scene.add(group)
-    clickableObjects.push(card)
-    signatureMeshes.set(sig.id, card)
+    clickableObjects.push(bg)
+    signatureMeshes.set(sig.id, bg)
     return group
   }
 
@@ -839,11 +980,18 @@ export function useGallery3D(
 
   function isResetting() { return resetState !== null }
 
+  function getFocusInfo(): { type: FocusType | null; label: string } {
+    if (!focusState || (focusState as any).isExiting) return { type: null, label: '' }
+    if (focusState.type === 'work') return { type: 'work', label: focusState.work?.name ?? '' }
+    return { type: focusState.type, label: focusState.label ?? '' }
+  }
+
   return {
     init, cleanup, addSignatureToWall, enterGallery, resetCamera,
     isEntered: () => entered,
     isFocused,
     isResetting,
+    getFocusInfo,
     getFocusedWork: () => focusState?.work ?? null
   }
 }

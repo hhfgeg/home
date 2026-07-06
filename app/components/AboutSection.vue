@@ -11,17 +11,17 @@
         <!-- Avatar & pen name -->
         <div class="about-hero" data-animate>
           <div class="avatar-ring">
-            <div class="avatar-placeholder">{{ author.penName.charAt(0) }}</div>
+            <div class="avatar-placeholder">{{ displayAuthor.penName.charAt(0) }}</div>
           </div>
-          <h3 class="pen-name">{{ author.penName }}</h3>
+          <h3 class="pen-name">{{ displayAuthor.penName }}</h3>
           <div class="author-tags">
-            <span v-for="tag in author.tags" :key="tag" class="tag-pill">{{ tag }}</span>
+            <span v-for="tag in displayAuthor.tags" :key="tag" class="tag-pill">{{ tag }}</span>
           </div>
         </div>
 
         <!-- Bio -->
         <div class="about-bio" data-animate>
-          <p class="bio-text">{{ author.bio }}</p>
+          <p class="bio-text">{{ displayAuthor.bio }}</p>
         </div>
 
         <!-- Experience / timeline -->
@@ -50,11 +50,24 @@
 </template>
 
 <script setup lang="ts">
-const author = {
-  penName: '云中书',
-  tags: ['AI探索者', '创意工程师', '数字叙事者'],
-  bio: '在AI与人类创造力的边界探索，用代码与文字构建通往未来的桥梁。致力于研究AI如何重塑创作方式，以及人机协作的无限可能。在LLM、扩散模型、生成艺术等领域有深入研究，始终相信最好的技术是让人感受不到技术的存在——它只是让创造变得更自然、更自由。'
+import { computed } from 'vue'
+
+interface AuthorData {
+  penName: string
+  bio: string
+  tags: string[]
+  contact?: { email?: string; github?: string; twitter?: string; website?: string }
 }
+
+const props = defineProps<{
+  author?: AuthorData
+}>()
+
+const displayAuthor = computed(() => ({
+  penName: props.author?.penName || '云中书',
+  bio: props.author?.bio || '在AI与人类创造力的边界探索，用代码与文字构建通往未来的桥梁。致力于研究AI如何重塑创作方式，以及人机协作的无限可能。',
+  tags: props.author?.tags?.length ? props.author.tags : ['AI探索者', '创意工程师', '数字叙事者'],
+}))
 
 const milestones = [
   {

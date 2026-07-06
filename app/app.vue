@@ -10,24 +10,44 @@
           :author="worksData.author"
           @add-signature="onAddSignature"
         />
+        <!-- Scroll hint -->
+        <div class="scroll-hint" v-if="showScrollHint">
+          <div class="scroll-arrow">↓</div>
+          <span>向下滚动查看更多</span>
+        </div>
       </section>
-    </main>
 
-    <footer class="app-footer">
-      <p class="footer-text">云中书 · 在云中书写</p>
-    </footer>
+      <SignatureWall :signatures="signatures" @add-signature="onAddSignature" />
+
+      <AboutSection :author="worksData.author" />
+
+      <footer class="app-footer">
+        <p class="footer-text">云中书 · 在云中书写</p>
+      </footer>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import NavigationBar from '~/components/NavigationBar.vue'
 import Gallery3D from '~/components/Gallery3D.vue'
+import SignatureWall from '~/components/SignatureWall.vue'
+import AboutSection from '~/components/AboutSection.vue'
 import type { SignatureItem } from '~/composables/useGallery3D'
 
 import worksJson from '~/data/works.json'
 const worksData = worksJson
 const signatures = ref<SignatureItem[]>(loadSignatures())
+const showScrollHint = ref(true)
+
+onMounted(() => {
+  const onScroll = () => {
+    showScrollHint.value = window.scrollY < 100
+  }
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onUnmounted(() => window.removeEventListener('scroll', onScroll))
+})
 
 function onAddSignature(sig: { name: string; comment: string; signatureDataUrl: string }) {
   const newSig: SignatureItem = {
@@ -87,5 +107,65 @@ useHead({
 </script>
 
 <style>
-/* Global styles are imported via nuxt.config.ts css option */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+.app-gallery {
+  height: 100vh;
+  position: relative;
+}
+
+/* Scroll hint */
+.scroll-hint {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #aaa;
+  font-size: 13px;
+  letter-spacing: 1px;
+  animation: floatUpDown 2s ease-in-out infinite;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.scroll-arrow {
+  font-size: 24px;
+  animation: bounce 1.5s ease-in-out infinite;
+}
+
+@keyframes floatUpDown {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.6; }
+  50% { transform: translateX(-50%) translateY(-8px); opacity: 1; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+.app-footer {
+  text-align: center;
+  padding: 20px;
+  font-size: 14px;
+  color: #999;
+  background: #faf8f5;
+  border-top: 1px solid #efe9db;
+}
+
+.footer-text {
+  margin: 0;
+  letter-spacing: 1px;
+}
 </style>

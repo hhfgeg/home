@@ -4,11 +4,15 @@
     <div class="gallery-hud" v-if="entered">
       <!-- Focus mode hint -->
       <div class="hud-controls-hint" v-if="focused">
-        <span class="hud-icon">🔍</span>
+        <span class="hud-icon">{{ focusType === 'signature-wall' ? '🖊️' : focusType === 'about' ? '👤' : '🔍' }}</span>
         <span class="hud-text">正在查看：</span>
-        <span class="hud-focus-name">{{ focusedWorkName }}</span>
+        <span class="hud-focus-name">{{ focusedLabel }}</span>
         <span class="hud-sep">·</span>
         <span class="hud-text">点击任意处或 ESC 返回</span>
+        <template v-if="focusType === 'signature-wall'">
+          <span class="hud-sep">·</span>
+          <span class="hud-btn" @click.stop="showSigModal = true">🖊 签名</span>
+        </template>
       </div>
       <!-- Normal controls -->
       <div class="hud-controls-hint" v-else>
@@ -40,8 +44,10 @@
           <h2 class="entry-title">云中书作品廊</h2>
           <p class="entry-subtitle">点击进入3D画廊空间</p>
           <div class="entry-hint">
-            <span class="hint-icon">👆</span>
-            <span>WASD移动 · 点击地面移动 · 右键旋转视角 · 滚轮缩放 · 点击作品聚焦</span>
+            <span>🖱 右键旋转 | WASD移动 | 滚轮缩放</span>
+          </div>
+          <div class="entry-hint entry-hint-sub">
+            <span>👈 左墙：个人信息 &nbsp;|&nbsp; 👉 右墙：签名墙 &nbsp;|&nbsp; 🖼 正墙：作品</span>
           </div>
         </div>
       </div>
@@ -72,14 +78,15 @@ const wrapperRef = ref<HTMLElement | null>(null)
 const canvasRef = ref<HTMLElement | null>(null)
 const entered = ref(false)
 const focused = ref(false)
-const focusedWorkName = ref('')
+const focusedLabel = ref('')
+const focusType = ref<'work' | 'about' | 'signature-wall' | ''>('')
 const showSigModal = ref(false)
 
 let galleryCleanup: (() => void) | null = null
 let galleryEnterFn: (() => void) | null = null
 let galleryResetFn: (() => void) | null = null
 let checkFocus: (() => boolean) | null = null
-let getFocusedWork: (() => WorkItem | null) | null = null
+let getFocusInfo: (() => { type: 'work' | 'about' | 'signature-wall' | null; label: string }) | null = null
 
 let focusInterval: ReturnType<typeof setInterval> | null = null
 
@@ -98,7 +105,7 @@ function doReset() {
 }
 
 function initGallery() {
-  const { init, cleanup, addSignatureToWall, enterGallery, resetCamera, isFocused: getIsFocused, getFocusedWork: _getFocusedWork } = useGallery3D(
+  const { init, cleanup, addSignatureToWall, enterGallery, resetCamera, isFocused: getIsFocused, getFocusInfo: _getFocusInfo } = useGallery3D(
     canvasRef,
     props.works,
     () => {},
@@ -106,7 +113,7 @@ function initGallery() {
     props.author
   )
   checkFocus = getIsFocused
-  getFocusedWork = _getFocusedWork
+  getFocusInfo = _getFocusInfo
   galleryCleanup = cleanup
   galleryEnterFn = enterGallery
   galleryResetFn = resetCamera
@@ -117,8 +124,11 @@ function initGallery() {
     const f = checkFocus?.()
     focused.value = !!f
     if (f) {
-      const w = getFocusedWork?.()
-      focusedWorkName.value = w?.name ?? ''
+      const info = getFocusInfo?.()
+      focusedLabel.value = info?.label ?? ''
+      focusType.value = info?.type ?? ''
+    } else {
+      focusType.value = ''
     }
   }, 100)
 
@@ -274,6 +284,15 @@ onUnmounted(() => {
   color: #888;
   font-size: 14px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.entry-hint-sub {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #aaa;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 10px 24px;
+  border-radius: 16px;
 }
 
 @keyframes floatUp {
