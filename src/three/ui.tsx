@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { useStore } from '../store'
-import { type SpaceData } from '../data'
+import { type SpaceData, spaceDisplayName } from '../data'
 
 /** A heads-up overlay that floats in 3D space just in front of the camera. */
 export function HUD({ space, itemsCount, onClaimSpace }: { space: SpaceData; itemsCount: number; onClaimSpace?: () => void }) {
@@ -43,7 +43,7 @@ export function HUD({ space, itemsCount, onClaimSpace }: { space: SpaceData; ite
                 className="neon-text"
                 style={{ fontSize: 26, fontWeight: 900, letterSpacing: 4, color: primary }}
               >
-                {space.brand}
+                {spaceDisplayName(space)}
               </div>
               <div style={{ fontSize: 10, letterSpacing: 6, opacity: 0.6, marginTop: 2 }}>
                 {space.subtitle}

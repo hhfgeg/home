@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { WORK_SEED } from './src/spaceSeed.mjs'
 
 // ================================================================
 //  开发环境 API 中间件
@@ -110,15 +111,18 @@ function devApi() {
           res.end(JSON.stringify(data))
         }
 
-        // ---- 空间创建 ----
+        // ---- 空间创建（可一并设置管理密码） ----
         if (url === '/api/space/new' && method === 'POST') {
           const body = JSON.parse(await readBody())
           const slug: string = (body.slug || '').toLowerCase()
+          const name: string | undefined = body.name || undefined
+          const password: string | undefined = body.password || undefined
           if (!slug || !/^[a-z0-9-]{2,32}$/.test(slug)) return jsonRes({ error: '标识仅支持字母数字和连字符，2-32字符' }, 400)
+          if (password && password.length < 4) return jsonRes({ error: '密码至少需要 4 个字符' }, 400)
           const existing = await readSpace(slug)
           if (existing && Object.keys(existing).length > 0 && existing.slug) return jsonRes({ error: `空间 "${slug}" 已存在` }, 409)
-          const data = {
-            slug, brand: slug, subtitle: '作品空间', studio: 'CREATIVE STUDIO',
+          const data: Record<string, any> = {
+            slug, name: name || '', brand: slug, subtitle: '作品空间', studio: 'CREATIVE STUDIO',
             title: `${slug} // 作品空间`, description: `${slug} 的作品空间 — 3D 互动创作廊`,
             passwordHash: '',
             theme: { primary: '#22e3ff', secondary: '#ff3df0' },
@@ -130,12 +134,16 @@ function devApi() {
                 stats: [{ k: '作品', v: '0' }, { k: '年限', v: '1Y' }, { k: '领域', v: '—' }, { k: '联系', v: '—' }],
                 contacts: [{ label: 'Email', value: 'hello@example.com', href: 'mailto:hello@example.com' }],
               },
+              // 占位作品卡片：让新空间不至于太空荡，登录后可替换为真实作品
+              ...WORK_SEED,
               { kind: 'signature', id: 'signature', title: 'Signature Wall', subtitle: '签名墙 · 留下印记', accent: '#ff3df0' },
             ],
             signatures: [],
           }
+          if (password) data.passwordHash = makePasswordHash(password)
           await writeSpace(slug, data)
-          return jsonRes({ success: true, space: data, token: generateToken(slug) })
+          const token = data.passwordHash ? generateToken(slug) : null
+          return jsonRes({ success: true, space: data, token, configured: !!data.passwordHash })
         }
 
         // ---- 认证 API（每个空间=独立用户，密码存于空间JSON的passwordHash） ----
@@ -238,6 +246,24 @@ function devApi() {
             const data = await readSpace(sigMatch[1])
             return jsonRes(Array.isArray(data['signatures']) ? data['signatures'] : [])
           }
+        }
+
+        // ---- 空间元数据更新（需认证） ----
+        if (url.startsWith('/api/space/') && method === 'PATCH') {
+          const user = authenticate(req)
+          if (!user) return jsonRes({ error: '未授权访问' }, 401)
+          const m = url.match(/^\/api\/space\/([^/?]+)/)
+          const slug = m ? m[1] : 'yunzhongshu'
+          const patch = JSON.parse(await readBody())
+          const data = await readSpace(slug)
+          if (!data || Object.keys(data).length === 0) return jsonRes({ error: '空间不存在' }, 404)
+          const META = ['name', 'brand', 'subtitle', 'studio', 'title', 'description']
+          for (const f of META) if (patch[f] !== undefined) data[f] = patch[f]
+          if (patch.theme) {
+            data.theme = { primary: patch.theme.primary ?? data.theme?.primary, secondary: patch.theme.secondary ?? data.theme?.secondary }
+          }
+          await writeSpace(slug, data)
+          return jsonRes({ success: true, space: data })
         }
 
         // ---- 签名墙 API ----

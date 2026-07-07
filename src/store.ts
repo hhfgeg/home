@@ -56,6 +56,7 @@ type AuthState = {
   showClaimGuide: boolean
   setClaimGuide: (show: boolean) => void
   checkAuthStatus: (slug: string) => Promise<void>
+  completeClaim: (slug: string, opts: { token?: string | null; passwordSet: boolean }) => void
   setupPassword: (slug: string, password: string) => Promise<void>
   login: (slug: string, password: string) => Promise<void>
   logout: () => void
@@ -182,6 +183,19 @@ export const useStore = create<State>((set) => ({
     const data = await res.json()
     persistAuth(data.token, data.username)
     set({ isLoggedIn: true, token: data.token, username: data.username, isConfigured: true })
+  },
+
+  /**
+   * 领取空间后收尾：若创建时已设置密码，服务端会直接返回 token，
+   * 这里用它完成自动登录，省去再次输入密码。
+   */
+  completeClaim: (slug: string, opts: { token?: string | null; passwordSet: boolean }) => {
+    if (opts.token) {
+      persistAuth(opts.token, slug)
+      set({ isLoggedIn: true, token: opts.token, username: slug, isConfigured: true })
+    } else {
+      set({ isConfigured: false })
+    }
   },
 
   login: async (username, password) => {

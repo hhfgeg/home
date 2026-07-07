@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { WORK_SEED } from './src/spaceSeed.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -138,6 +139,7 @@ function readSpaceData(slug) {
 
 async function writeSpaceData(slug, data) {
   const filePath = path.join(DATA_DIR, `${slug}.json`);
+  await fs.promises.mkdir(DATA_DIR, { recursive: true });
   await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2));
 }
 
@@ -192,9 +194,10 @@ function streamFile(res, filePath) {
 // ================================================================
 
 // ---- 新空间模板 --------------------------------------------------
-function makeSpaceTemplate(slug) {
+function makeSpaceTemplate(slug, name) {
   return {
     slug,
+    name: name || '',
     brand: slug,
     subtitle: '作品空间',
     studio: 'CREATIVE STUDIO',
@@ -211,6 +214,8 @@ function makeSpaceTemplate(slug) {
         stats: [{ k: '作品', v: '0' }, { k: '年限', v: '1Y' }, { k: '领域', v: '—' }, { k: '联系', v: '—' }],
         contacts: [{ label: 'Email', value: 'hello@example.com', href: 'mailto:hello@example.com' }],
       },
+      // 占位作品卡片：让新空间不至于太空荡，登录后可替换为真实作品
+      ...WORK_SEED,
       {
         kind: 'signature', id: 'signature',
         title: 'Signature Wall', subtitle: '签名墙 · 留下印记', accent: '#ff3df0',
@@ -220,27 +225,64 @@ function makeSpaceTemplate(slug) {
   }
 }
 
-// POST /api/space/new —— 创建新空间
+// POST /api/space/new —— 创建新空间（可一并设置管理密码）
 async function handleCreateSpace(req, res) {
   if (req.method !== 'POST') { res.writeHead(405); return void res.end(); }
   try {
     const body = await readBody(req);
-    const { slug } = JSON.parse(body);
+    const { slug, name, password } = JSON.parse(body);
     if (!slug || !/^[a-z0-9-]{2,32}$/.test(slug)) {
       return jsonResponse(res, { error: '标识仅支持小写字母、数字和连字符，2-32字符' }, 400);
+    }
+    if (password !== undefined && password !== null && password !== '' && password.length < 4) {
+      return jsonResponse(res, { error: '密码至少需要 4 个字符' }, 400);
     }
     // 检查是否已存在
     if (readSpaceData(slug)) {
       return jsonResponse(res, { error: `空间 "${slug}" 已存在` }, 409);
     }
-    const data = makeSpaceTemplate(slug);
+    const data = makeSpaceTemplate(slug, name);
+    // 创建时顺带设置密码（选填）
+    if (password) {
+      data.passwordHash = makePasswordHash(password);
+    }
     await writeSpaceData(slug, data);
 
-    // 如果已登录，返回 token 用于自动登录该空间
-    const token = generateToken(slug);
-    return jsonResponse(res, { success: true, space: data, token });
+    // 若设置了密码，直接签发 token 完成自动登录；否则返回未配置标记
+    const token = data.passwordHash ? generateToken(slug) : null;
+    return jsonResponse(res, { success: true, space: data, token, configured: !!data.passwordHash });
   } catch (e) {
     return jsonResponse(res, { error: String(e) }, 500);
+  }
+}
+
+// PATCH /api/space/:slug —— 更新空间元数据（名称、文案、主题等，需认证）
+const SPACE_META_FIELDS = ['name', 'brand', 'subtitle', 'studio', 'title', 'description']
+async function handleUpdateSpaceMeta(req, res, slug) {
+  const safeSlug = slug || DATA_FALLBACK_SLUG
+  const username = authenticate(req)
+  if (!username) return jsonResponse(res, { error: '未授权访问' }, 401)
+  try {
+    const body = await readBody(req)
+    const patch = JSON.parse(body)
+    const data = readSpaceData(safeSlug)
+    if (!data) return jsonResponse(res, { error: '空间不存在' }, 404)
+
+    // 顶层可变文案字段
+    for (const f of SPACE_META_FIELDS) {
+      if (patch[f] !== undefined) data[f] = patch[f]
+    }
+    // 主题色
+    if (patch.theme) {
+      data.theme = {
+        primary: patch.theme.primary ?? data.theme?.primary,
+        secondary: patch.theme.secondary ?? data.theme?.secondary,
+      }
+    }
+    await writeSpaceData(safeSlug, data)
+    return jsonResponse(res, { success: true, space: data })
+  } catch (e) {
+    return jsonResponse(res, { error: String(e) }, 500)
   }
 }
 
@@ -496,6 +538,7 @@ const server = http.createServer((req, res) => {
 
   const spaceMatch = url.match(/^\/api\/space\/([^/?]+)/);
   if (spaceMatch && method === 'GET') return void handleSpaceData(res, spaceMatch[1]);
+  if (spaceMatch && method === 'PATCH') return void handleUpdateSpaceMeta(req, res, spaceMatch[1]);
 
   // ---- 签名墙 ----
   const sigMatch = url.match(/^\/api\/signatures\/([^/?]+)/);

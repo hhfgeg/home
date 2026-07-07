@@ -123,7 +123,7 @@ export default function LoginModal({ onClose, isSetup, slug, accent = '#22e3ff' 
               textShadow: `0 0 12px ${accent}, 0 0 28px ${accent}44`,
             }}
           >
-            {isSetup ? '设置管理员密码' : '云中书 · 后台'}
+            {isSetup ? '设置管理员密码' : '后台管理'}
           </div>
           {isSetup && (
             <div style={{ marginTop: 10, fontSize: 11, color: '#9fb3c8', letterSpacing: '0.05em', lineHeight: 1.6 }}>

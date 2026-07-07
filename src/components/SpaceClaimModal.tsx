@@ -1,27 +1,40 @@
 import { useState, useRef, useEffect } from 'react'
+import { normalizeSlug, validateSlug } from '../slug'
 
 interface SpaceClaimModalProps {
   onClose: () => void
-  onClaimed: (slug: string) => void
+  onClaimed: (slug: string, claimed: { passwordSet: boolean; token: string | null }) => void
   accent?: string
+  /** 预填的空间标识（例如从 404 页面带入的缺失 slug） */
+  initialSlug?: string
 }
 
-export default function SpaceClaimModal({ onClose, onClaimed, accent = '#22e3ff' }: SpaceClaimModalProps) {
-  const [slug, setSlug] = useState('')
+export default function SpaceClaimModal({ onClose, onClaimed, accent = '#22e3ff', initialSlug }: SpaceClaimModalProps) {
+  // 优先使用规范化后的预填值，保证带入的 slug 一定合法可编辑
+  const [slug, setSlug] = useState(() => normalizeSlug(initialSlug || ''))
+  const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
-  }, [])
+    // 若有预填值，直接全选方便修改
+    if (initialSlug) inputRef.current?.select()
+  }, [initialSlug])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const id = slug.trim().toLowerCase()
-    if (!id) { setError('请输入空间标识'); return }
-    if (!/^[a-z0-9-]{2,32}$/.test(id)) {
-      setError('仅支持小写字母、数字和连字符，2-32个字符')
+    const err = validateSlug(id)
+    if (err) { setError(err); return }
+    // 密码为选填，但填写后需满足最小长度
+    if (password && password.length < 4) {
+      setError('密码至少需要 4 个字符')
+      passwordRef.current?.focus()
       return
     }
     setLoading(true)
@@ -30,13 +43,14 @@ export default function SpaceClaimModal({ onClose, onClaimed, accent = '#22e3ff'
       const res = await fetch('/api/space/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: id }),
+        body: JSON.stringify({ slug: id, name: name.trim() || undefined, password: password || undefined }),
       })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error || '创建失败')
       }
-      onClaimed(id)
+      const data = await res.json()
+      onClaimed(id, { passwordSet: !!password, token: data?.token ?? null })
     } catch (err: any) {
       setError(err.message || '创建失败')
     } finally {
@@ -87,8 +101,9 @@ export default function SpaceClaimModal({ onClose, onClaimed, accent = '#22e3ff'
             ✨ 领取我的空间
           </div>
           <div style={{ marginTop: 12, fontSize: 12, color: '#9fb3c8', lineHeight: 1.6, letterSpacing: '0.05em' }}>
-            输入你的专属空间标识，即可获得一个<br />
-            支持作品展示、关于我、签名墙的完整空间
+            {initialSlug
+              ? <>该空间尚不存在，确认后将为你创建<br />支持作品展示、关于我、签名墙的完整空间</>
+              : <>输入你的专属空间标识，即可获得一个<br />支持作品展示、关于我、签名墙的完整空间</>}
           </div>
           <div style={{ marginTop: 8, fontSize: 10, color: '#556678' }}>
             （例如：my-works、design-2026）
@@ -113,6 +128,54 @@ export default function SpaceClaimModal({ onClose, onClaimed, accent = '#22e3ff'
             />
           </div>
 
+          {/* 中文名（选填，留空则使用空间标识） */}
+          <div>
+            <div style={{ fontSize: 10, color: '#7d93b0', letterSpacing: '0.15em', marginBottom: 6, paddingLeft: 4 }}>
+              空间名称（选填）· 支持中文，留空则使用标识
+            </div>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(e as any) }}
+              placeholder={slug || '我的创意空间'}
+              style={{ ...iStyle, fontSize: 16, letterSpacing: '0.02em', textAlign: 'left', paddingLeft: 16, opacity: 0.95 }}
+              autoComplete="off"
+              maxLength={32}
+            />
+          </div>
+
+          {/* 密码（选填，支持显示/隐藏切换） */}
+          <div>
+            <div style={{ fontSize: 10, color: '#7d93b0', letterSpacing: '0.15em', marginBottom: 6, paddingLeft: 4 }}>
+              空间密码（选填）· 设置后需登录才能管理
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                ref={passwordRef}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(e as any) }}
+                placeholder="设置管理密码"
+                style={{ ...iStyle, fontSize: 16, letterSpacing: '0.05em', paddingRight: 48 }}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                title={showPassword ? '隐藏密码' : '显示密码'}
+                style={{
+                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  background: 'transparent', border: 'none', cursor: 'pointer', padding: 4,
+                  color: showPassword ? accent : '#7d93b0', fontSize: 16, lineHeight: 1,
+                }}
+              >
+                {showPassword ? '🙈' : '👁'}
+              </button>
+            </div>
+          </div>
+
           {error && (
             <div style={{
               fontSize: 12, color: '#ff4477', textAlign: 'center',
@@ -134,7 +197,7 @@ export default function SpaceClaimModal({ onClose, onClaimed, accent = '#22e3ff'
         </form>
 
         <div style={{ marginTop: 18, textAlign: 'center', fontSize: 9, color: '#556678', letterSpacing: '0.1em' }}>
-          数据与密码独立存储 · 即领即用
+          密码独立加盐存储（PBKDF2）· 即领即用
         </div>
       </div>
 

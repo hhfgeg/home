@@ -316,10 +316,12 @@ export default function AdminPanel({
   slug,
   accent = '#22e3ff',
   onClose,
+  onSpaceUpdated,
 }: {
   slug: string
   accent?: string
   onClose: () => void
+  onSpaceUpdated?: () => void
 }) {
   const token = useStore((s) => s.token)
   const logout = useStore((s) => s.logout)
@@ -331,7 +333,7 @@ export default function AdminPanel({
   const [editing, setEditing] = useState<Card | null>(null)
   const [creating, setCreating] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
-  const [activeTab, setTab] = useState<'works' | 'about' | 'sigs'>('works')
+  const [activeTab, setTab] = useState<'works' | 'about' | 'sigs' | 'settings'>('works')
 
   const apiHeaders = {
     'Content-Type': 'application/json',
@@ -510,6 +512,7 @@ export default function AdminPanel({
           { key: 'works' as const, label: '✦ 作品' },
           { key: 'about' as const, label: '👤 关于' },
           { key: 'sigs' as const, label: '✍ 签名' },
+          { key: 'settings' as const, label: '⚙ 空间设置' },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -606,6 +609,17 @@ export default function AdminPanel({
                 accent={accent}
                 token={token!}
                 onSuccess={(msg) => { showSuccess(msg) }}
+                onError={(msg) => { setError(msg); setTimeout(() => setError(''), 3000) }}
+              />
+            )}
+
+            {/* ========= 空间设置 Tab ========= */}
+            {activeTab === 'settings' && (
+              <SpaceSettingsEditor
+                slug={slug}
+                accent={accent}
+                token={token!}
+                onSuccess={(msg) => { showSuccess(msg); onSpaceUpdated?.() }}
                 onError={(msg) => { setError(msg); setTimeout(() => setError(''), 3000) }}
               />
             )}
@@ -856,6 +870,122 @@ function SignatureManager({
 
       <div style={{ marginTop: 16, fontSize: 9, color: '#556678' }}>
         🔒 签名墙为系统卡片，不可删除，此处管理的是签名墙上的留言内容
+      </div>
+    </div>
+  )
+}
+
+// ================================================================
+//  空间设置编辑器（名称、文案、主题色）
+// ================================================================
+function SpaceSettingsEditor({
+  slug, accent, token, onSuccess, onError,
+}: {
+  slug: string
+  accent: string
+  token: string
+  onSuccess: (msg: string) => void
+  onError: (msg: string) => void
+}) {
+  const [form, setForm] = useState({
+    name: '', brand: '', subtitle: '', studio: '', title: '', description: '',
+    primary: '#22e3ff', secondary: '#ff3df0',
+  })
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/space/${slug}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: any) => {
+        setForm({
+          name: data.name || '',
+          brand: data.brand || '',
+          subtitle: data.subtitle || '',
+          studio: data.studio || '',
+          title: data.title || '',
+          description: data.description || '',
+          primary: data.theme?.primary || '#22e3ff',
+          secondary: data.theme?.secondary || '#ff3df0',
+        })
+        setLoaded(true)
+      })
+      .catch(() => { setLoaded(true) })
+  }, [slug])
+
+  const update = (field: string, value: string) => setForm((p) => ({ ...p, [field]: value }))
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/space/${slug}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: form.name,
+          brand: form.brand,
+          subtitle: form.subtitle,
+          studio: form.studio,
+          title: form.title,
+          description: form.description,
+          theme: { primary: form.primary, secondary: form.secondary },
+        }),
+      })
+      if (res.status === 401) throw new Error('登录已失效，请重新登录')
+      if (!res.ok) throw new Error((await res.json()).error || '保存失败')
+      onSuccess('空间设置已更新')
+    } catch (e: any) {
+      onError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const sectLabel: React.CSSProperties = { fontSize: 10, letterSpacing: '0.2em', color: accent, marginBottom: 8, marginTop: 14 }
+  const iStyle: React.CSSProperties = {
+    width: '100%', padding: '7px 10px', borderRadius: 6,
+    border: `1px solid ${accent}44`, background: 'rgba(0,0,0,0.25)',
+    color: '#eafcff', fontSize: 12, outline: 'none',
+    fontFamily: "'JetBrains Mono', monospace",
+  }
+  const taStyle: React.CSSProperties = { ...iStyle, minHeight: 60, resize: 'vertical' }
+
+  return (
+    <div style={{ maxWidth: 700 }}>
+      <div style={sectLabel}>空间名称 / DISPLAY NAME</div>
+      <input style={iStyle} value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="中文名（留空则使用标识）" />
+      <div style={{ fontSize: 9, color: '#556678', marginTop: 4 }}>
+        展示在 HUD 与浏览器标题；留空则回退到空间标识
+      </div>
+
+      <div style={sectLabel}>卡片文案 / CARD TEXT</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <input style={iStyle} value={form.brand} onChange={(e) => update('brand', e.target.value)} placeholder="标识(slug)" />
+        <input style={iStyle} value={form.studio} onChange={(e) => update('studio', e.target.value)} placeholder="工作室" />
+      </div>
+      <input style={{ ...iStyle, marginTop: 8 }} value={form.subtitle} onChange={(e) => update('subtitle', e.target.value)} placeholder="副标题" />
+      <input style={{ ...iStyle, marginTop: 8 }} value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="页面标题" />
+      <textarea style={{ ...taStyle, marginTop: 8 }} value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="空间简介" />
+
+      <div style={sectLabel}>主题色 / THEME</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="color" value={form.primary} onChange={(e) => update('primary', e.target.value)} style={{ width: 36, height: 32, background: 'transparent', border: 'none' }} />
+          <input style={iStyle} value={form.primary} onChange={(e) => update('primary', e.target.value)} placeholder="#22e3ff" />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="color" value={form.secondary} onChange={(e) => update('secondary', e.target.value)} style={{ width: 36, height: 32, background: 'transparent', border: 'none' }} />
+          <input style={iStyle} value={form.secondary} onChange={(e) => update('secondary', e.target.value)} placeholder="#ff3df0" />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <button onClick={handleSave} disabled={saving || !loaded} style={submitBtnStyle(accent)}>
+          {saving ? '保存中…' : '保存空间设置'}
+        </button>
+        <div style={{ marginTop: 8, fontSize: 9, color: '#556678' }}>
+          🔒 需管理员登录；更改即时生效，HUD 将实时刷新
+        </div>
       </div>
     </div>
   )

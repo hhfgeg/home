@@ -97,8 +97,9 @@ export default function Scene({ space, items, onClaimSpace }: { space: SpaceData
           <div className="font-display animate-pulseGlow" style={{
             background: 'rgba(8,12,26,0.8)', backdropFilter: 'blur(8px)',
             border: `1px solid ${space.theme.primary}66`,
-            borderRadius: 14, padding: '16px 24px', textAlign: 'center',
+            borderRadius: 14, padding: '16px 28px', textAlign: 'center',
             boxShadow: `0 0 30px ${space.theme.primary}33`,
+            minWidth: 280, whiteSpace: 'nowrap',
           }}>
             <div style={{ fontSize: 14, color: '#eafcff', letterSpacing: '0.1em', marginBottom: 8 }}>
               🎉 空间已领取！

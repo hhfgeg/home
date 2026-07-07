@@ -58,6 +58,8 @@ export type SpaceTheme = {
 
 export type SpaceData = {
   slug: string
+  /** 中文/展示名称（选填）。留空时回退到 brand/slug */
+  name?: string
   brand: string
   subtitle: string
   studio: string
@@ -65,6 +67,14 @@ export type SpaceData = {
   description: string
   theme: SpaceTheme
   items: Card[]
+}
+
+/**
+ * 空间对外展示名称：优先使用中文名 name，其次 brand，最后 slug。
+ * 领取空间时若未填中文名，将回退到 slug，保证始终有可读标题。
+ */
+export function spaceDisplayName(space: SpaceData): string {
+  return (space.name?.trim() || space.brand?.trim() || space.slug).trim()
 }
 
 /** 默认空间标识（根路径重定向目标） */
