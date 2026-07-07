@@ -4,38 +4,20 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import { WORK_SEED } from './src/spaceSeed.mjs'
+import { makePasswordHash, verifyPassword } from './src/cryptoUtils.mjs'
 
 // ================================================================
 //  开发环境 API 中间件
 // ================================================================
 
 function devApi() {
-  // 复用服务端相同的密码学参数
-  const PBKDF2_ITERATIONS = 100000
-  const PBKDF2_KEYLEN = 32
-  const PBKDF2_DIGEST = 'sha256'
+  // 开发环境 Token 密钥（固定值，仅用于开发）
   const TOKEN_SECRET = 'dev-token-secret'
   const TOKEN_TTL = 24 * 60 * 60 * 1000
   const PROTECTED_IDS = new Set(['about', 'signature'])
 
-  const hashPassword = (password: string, salt: string) =>
-    crypto.pbkdf2Sync(password, Buffer.from(salt, 'hex'), PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST).toString('hex')
-
-  const makePasswordHash = (password: string) => {
-    const salt = crypto.randomBytes(16).toString('hex')
-    const hash = hashPassword(password, salt)
-    return `pbkdf2_${PBKDF2_DIGEST}$${PBKDF2_ITERATIONS}$${salt}$${hash}`
-  }
-
-  const verifyPassword = (password: string, storedHash: string) => {
-    try {
-      const parts = storedHash.split('$')
-      if (parts.length < 4) return false
-      const [, , iterations, salt, hash] = parts
-      const computed = crypto.pbkdf2Sync(password, Buffer.from(salt, 'hex'), parseInt(iterations), PBKDF2_KEYLEN, PBKDF2_DIGEST).toString('hex')
-      return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(hash))
-    } catch { return false }
-  }
+  // 复用 cryptoUtils.mjs 中的 makePasswordHash / verifyPassword
+  // (已通过顶层 import 引入)
 
   const generateToken = (username: string) => {
     const expires = Date.now() + TOKEN_TTL
