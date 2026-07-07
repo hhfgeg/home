@@ -53,6 +53,8 @@ type AuthState = {
   closeLoginModal: () => void
   openAdminPanel: (slug: string) => void
   closeAdminPanel: () => void
+  showClaimGuide: boolean
+  setClaimGuide: (show: boolean) => void
   checkAuthStatus: (slug: string) => Promise<void>
   setupPassword: (slug: string, password: string) => Promise<void>
   login: (slug: string, password: string) => Promise<void>
@@ -133,6 +135,9 @@ export const useStore = create<State>((set) => ({
   closeLoginModal: () => set({ showLoginModal: false, modalOpen: false }),
   openAdminPanel: (slug) => set({ showAdminPanel: true, adminSlug: slug, modalOpen: true }),
   closeAdminPanel: () => set({ showAdminPanel: false, adminSlug: '', modalOpen: false }),
+  // 注册引导
+  showClaimGuide: false,
+  setClaimGuide: (show: boolean) => set({ showClaimGuide: show }),
 
   checkAuthStatus: async (slug) => {
     try {

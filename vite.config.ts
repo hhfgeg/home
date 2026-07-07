@@ -110,6 +110,34 @@ function devApi() {
           res.end(JSON.stringify(data))
         }
 
+        // ---- 空间创建 ----
+        if (url === '/api/space/new' && method === 'POST') {
+          const body = JSON.parse(await readBody())
+          const slug: string = (body.slug || '').toLowerCase()
+          if (!slug || !/^[a-z0-9-]{2,32}$/.test(slug)) return jsonRes({ error: '标识仅支持字母数字和连字符，2-32字符' }, 400)
+          const existing = await readSpace(slug)
+          if (existing && Object.keys(existing).length > 0 && existing.slug) return jsonRes({ error: `空间 "${slug}" 已存在` }, 409)
+          const data = {
+            slug, brand: slug, subtitle: '作品空间', studio: 'CREATIVE STUDIO',
+            title: `${slug} // 作品空间`, description: `${slug} 的作品空间 — 3D 互动创作廊`,
+            passwordHash: '',
+            theme: { primary: '#22e3ff', secondary: '#ff3df0' },
+            items: [
+              {
+                kind: 'about', id: 'about', title: 'About // 关于', subtitle: '背景与创作探索', accent: '#22e3ff',
+                name: slug, role: 'Creator', location: '远程创作',
+                bio: ['在这里写下你的自我介绍…'],
+                stats: [{ k: '作品', v: '0' }, { k: '年限', v: '1Y' }, { k: '领域', v: '—' }, { k: '联系', v: '—' }],
+                contacts: [{ label: 'Email', value: 'hello@example.com', href: 'mailto:hello@example.com' }],
+              },
+              { kind: 'signature', id: 'signature', title: 'Signature Wall', subtitle: '签名墙 · 留下印记', accent: '#ff3df0' },
+            ],
+            signatures: [],
+          }
+          await writeSpace(slug, data)
+          return jsonRes({ success: true, space: data, token: generateToken(slug) })
+        }
+
         // ---- 认证 API（每个空间=独立用户，密码存于空间JSON的passwordHash） ----
         if (url === '/api/auth/setup' && method === 'POST') {
           const body = JSON.parse(await readBody())

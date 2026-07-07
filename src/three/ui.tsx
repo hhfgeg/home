@@ -6,7 +6,7 @@ import { useStore } from '../store'
 import { type SpaceData } from '../data'
 
 /** A heads-up overlay that floats in 3D space just in front of the camera. */
-export function HUD({ space, itemsCount }: { space: SpaceData; itemsCount: number }) {
+export function HUD({ space, itemsCount, onClaimSpace }: { space: SpaceData; itemsCount: number; onClaimSpace?: () => void }) {
   const ref = useRef<THREE.Group>(null)
   const fwd = useRef(new THREE.Vector3())
   const { camera } = useThree()
@@ -23,6 +23,7 @@ export function HUD({ space, itemsCount }: { space: SpaceData; itemsCount: numbe
 
   return (
     <group ref={ref}>
+      {/* Main HUD — pointerEvents none */}
       <Html center zIndexRange={[15, 0]} style={{ pointerEvents: 'none' }}>
         <div
           style={{
@@ -88,6 +89,39 @@ export function HUD({ space, itemsCount }: { space: SpaceData; itemsCount: numbe
           )}
         </div>
       </Html>
+
+      {/* "领取我的空间" button — separate Html with pointerEvents auto */}
+      {onClaimSpace && !focused && (
+        <Html center zIndexRange={[16, 0]} style={{ pointerEvents: 'auto' }}>
+          <div style={{ width: '100vw', height: '100vh', pointerEvents: 'none', padding: '16px 20px', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
+            <button
+              onClick={onClaimSpace}
+              className="font-display"
+              style={{
+                pointerEvents: 'auto',
+                marginTop: 48,
+                padding: '7px 18px',
+                borderRadius: 999,
+                border: `1px solid ${primary}`,
+                background: `linear-gradient(135deg, ${primary}15, ${primary}08)`,
+                color: primary,
+                fontSize: 11,
+                letterSpacing: '0.15em',
+                cursor: 'pointer',
+                boxShadow: `0 0 16px ${primary}22`,
+                fontFamily: "'JetBrains Mono', monospace",
+                transition: 'all 0.3s',
+                opacity: 0.75,
+                backdropFilter: 'blur(4px)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = `0 0 24px ${primary}44` }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.75'; e.currentTarget.style.boxShadow = `0 0 16px ${primary}22` }}
+            >
+              ✨ 领取我的空间
+            </button>
+          </div>
+        </Html>
+      )}
     </group>
   )
 }

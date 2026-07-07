@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { Effects } from './effects'
 import Gallery from './Gallery'
@@ -31,15 +31,25 @@ function CameraRig({
   return null
 }
 
-export default function Scene({ space, items }: { space: SpaceData; items: Card[] }) {
+export default function Scene({ space, items, onClaimSpace }: { space: SpaceData; items: Card[]; onClaimSpace?: () => void }) {
   const focused = useStore((s) => s.focusedId)
   const setFocused = useStore((s) => s.setFocused)
   const loadSignatures = useStore((s) => s.loadSignatures)
   const modalOpen = useStore((s) => s.modalOpen)
+  const showClaimGuide = useStore((s) => s.showClaimGuide)
+  const setClaimGuide = useStore((s) => s.setClaimGuide)
   const controls = useRef<any>(null)
   const R = galleryRadius(items.length)
+  const [guideVisible, setGuideVisible] = useState(!!showClaimGuide)
 
-  // 进入空间即加载签名墙数据，使 signature 卡片在初始旋转态就能渲染已有签名
+  useEffect(() => {
+    if (showClaimGuide) {
+      setGuideVisible(true)
+      const t = setTimeout(() => { setGuideVisible(false); setClaimGuide(false) }, 12000)
+      return () => clearTimeout(t)
+    }
+  }, [showClaimGuide, setClaimGuide])
+
   useEffect(() => {
     loadSignatures(space.slug)
   }, [space.slug, loadSignatures])
@@ -50,14 +60,14 @@ export default function Scene({ space, items }: { space: SpaceData; items: Card[
       camera={{ position: [0, 1.8, R + 9.2], fov: 42 }}
       gl={{ antialias: true }}
       onPointerMissed={() => {
-        // 模态窗/管理面板打开时，不退焦
         if (modalOpen) return
-        // 签名墙为沉浸式交互区域，点击空白不自动退出，仅靠返回按钮关闭
         if (focused) {
           const card = items.find((i) => i.id === focused)
           if (card && card.kind === 'signature') return
         }
         setFocused(null)
+        // 点击任意处关闭引导
+        if (guideVisible) { setGuideVisible(false); setClaimGuide(false) }
       }}
     >
       <color attach="background" args={['#04050b']} />
@@ -80,7 +90,28 @@ export default function Scene({ space, items }: { space: SpaceData; items: Card[
         maxPolarAngle={1.5}
         makeDefault
       />
-      <HUD space={space} itemsCount={items.length} />
+
+      {/* 注册引导提示 — 指向"关于"卡片 */}
+      {guideVisible && (
+        <Html center zIndexRange={[50, 0]} style={{ pointerEvents: 'none', transform: 'translateY(-40%)' }}>
+          <div className="font-display animate-pulseGlow" style={{
+            background: 'rgba(8,12,26,0.8)', backdropFilter: 'blur(8px)',
+            border: `1px solid ${space.theme.primary}66`,
+            borderRadius: 14, padding: '16px 24px', textAlign: 'center',
+            boxShadow: `0 0 30px ${space.theme.primary}33`,
+          }}>
+            <div style={{ fontSize: 14, color: '#eafcff', letterSpacing: '0.1em', marginBottom: 8 }}>
+              🎉 空间已领取！
+            </div>
+            <div style={{ fontSize: 12, color: '#9fb3c8', letterSpacing: '0.05em', lineHeight: 1.7 }}>
+              点击「<span style={{ color: space.theme.primary }}>About // 关于</span>」卡片<br />
+              设置密码登录管理你的空间
+            </div>
+          </div>
+        </Html>
+      )}
+
+      <HUD space={space} itemsCount={items.length} onClaimSpace={onClaimSpace} />
     </Canvas>
   )
 }

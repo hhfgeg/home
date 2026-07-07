@@ -191,6 +191,59 @@ function streamFile(res, filePath) {
 //  API Handlers
 // ================================================================
 
+// ---- 新空间模板 --------------------------------------------------
+function makeSpaceTemplate(slug) {
+  return {
+    slug,
+    brand: slug,
+    subtitle: '作品空间',
+    studio: 'CREATIVE STUDIO',
+    title: `${slug} // 作品空间`,
+    description: `${slug} 的作品空间 — 科技感与未来感兼具的 3D 互动创作廊`,
+    passwordHash: '',
+    theme: { primary: '#22e3ff', secondary: '#ff3df0' },
+    items: [
+      {
+        kind: 'about', id: 'about',
+        title: 'About // 关于', subtitle: '背景与创作探索', accent: '#22e3ff',
+        name: slug, role: 'Creator', location: '远程创作',
+        bio: ['在这里写下你的自我介绍…'],
+        stats: [{ k: '作品', v: '0' }, { k: '年限', v: '1Y' }, { k: '领域', v: '—' }, { k: '联系', v: '—' }],
+        contacts: [{ label: 'Email', value: 'hello@example.com', href: 'mailto:hello@example.com' }],
+      },
+      {
+        kind: 'signature', id: 'signature',
+        title: 'Signature Wall', subtitle: '签名墙 · 留下印记', accent: '#ff3df0',
+      },
+    ],
+    signatures: [],
+  }
+}
+
+// POST /api/space/new —— 创建新空间
+async function handleCreateSpace(req, res) {
+  if (req.method !== 'POST') { res.writeHead(405); return void res.end(); }
+  try {
+    const body = await readBody(req);
+    const { slug } = JSON.parse(body);
+    if (!slug || !/^[a-z0-9-]{2,32}$/.test(slug)) {
+      return jsonResponse(res, { error: '标识仅支持小写字母、数字和连字符，2-32字符' }, 400);
+    }
+    // 检查是否已存在
+    if (readSpaceData(slug)) {
+      return jsonResponse(res, { error: `空间 "${slug}" 已存在` }, 409);
+    }
+    const data = makeSpaceTemplate(slug);
+    await writeSpaceData(slug, data);
+
+    // 如果已登录，返回 token 用于自动登录该空间
+    const token = generateToken(slug);
+    return jsonResponse(res, { success: true, space: data, token });
+  } catch (e) {
+    return jsonResponse(res, { error: String(e) }, 500);
+  }
+}
+
 // GET /api/spaces
 function handleListSpaces(res) {
   try {
@@ -412,6 +465,9 @@ async function handleAdminSignaturesDelete(req, res, slug, id) {
 const server = http.createServer((req, res) => {
   const url = req.url || '/';
   const method = req.method || 'GET';
+
+  // ---- 空间创建 ----
+  if (url === '/api/space/new' && method === 'POST') return void handleCreateSpace(req, res);
 
   // ---- 认证（每个空间=独立用户，密码存在空间JSON的passwordHash字段） ----
   if (url === '/api/auth/setup' && method === 'POST') return void handleAuthSetup(req, res);

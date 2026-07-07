@@ -28,8 +28,8 @@ COPY server.mjs .
 # 运行时数据目录（启动时由 server.mjs 按需初始化）
 RUN mkdir -p /app/data
 
-EXPOSE 80
+EXPOSE 8080
 
-ENV PORT=80
+ENV PORT=8080
 
 CMD ["node", "server.mjs"]

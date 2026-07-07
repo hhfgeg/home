@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useParams, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams, Link, useNavigate } from 'react-router-dom'
 import Scene from './three/Scene'
 import { loadSpace, DEFAULT_SLUG, type SpaceData } from './data'
 import type { Card } from './data'
 import { useStore } from './store'
 import LoginModal from './components/LoginModal'
 import AdminPanel from './components/AdminPanel'
+import SpaceClaimModal from './components/SpaceClaimModal'
 
 function NotFound({ slug }: { slug: string }) {
   return (
@@ -59,8 +60,10 @@ function NotFound({ slug }: { slug: string }) {
 
 function SpacePage() {
   const { slug = DEFAULT_SLUG } = useParams()
+  const navigate = useNavigate()
   const [space, setSpace] = useState<SpaceData | null>(() => loadSpace(slug))
   const [loading, setLoading] = useState(!space)
+  const [showClaim, setShowClaim] = useState(false)
 
   const showLoginModal = useStore((s) => s.showLoginModal)
   const closeLoginModal = useStore((s) => s.closeLoginModal)
@@ -68,6 +71,7 @@ function SpacePage() {
   const showAdminPanel = useStore((s) => s.showAdminPanel)
   const closeAdminPanel = useStore((s) => s.closeAdminPanel)
   const adminSlug = useStore((s) => s.adminSlug)
+  const setClaimGuide = useStore((s) => s.setClaimGuide)
 
   useEffect(() => {
     const builtin = loadSpace(slug)
@@ -91,6 +95,12 @@ function SpacePage() {
     if (space) document.title = space.title
   }, [slug, space])
 
+  const handleClaimed = (newSlug: string) => {
+    setShowClaim(false)
+    setClaimGuide(true)
+    navigate(`/${newSlug}`)
+  }
+
   if (loading) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -106,9 +116,9 @@ function SpacePage() {
 
   return (
     <>
-      <Scene space={space} items={space.items} />
+      <Scene space={space} items={space.items} onClaimSpace={() => setShowClaim(true)} />
 
-      {/* 模态窗在 Canvas 外部渲染，避免 R3F 把 DOM 元素当 Three.js 对象 */}
+      {/* 模态窗在 Canvas 外部渲染 */}
       {showLoginModal && (
         <LoginModal
           onClose={closeLoginModal}
@@ -122,6 +132,13 @@ function SpacePage() {
           slug={adminSlug}
           accent={accent}
           onClose={closeAdminPanel}
+        />
+      )}
+      {showClaim && (
+        <SpaceClaimModal
+          onClose={() => setShowClaim(false)}
+          onClaimed={handleClaimed}
+          accent={accent}
         />
       )}
     </>
