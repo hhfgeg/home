@@ -24,7 +24,7 @@ function devApi() {
   const makePasswordHash = (password: string) => {
     const salt = crypto.randomBytes(16).toString('hex')
     const hash = hashPassword(password, salt)
-    return `pbkdf2_${PBKDF2_DIGEST}$${PBKDF2_ITERATIONS}$$${salt}$${hash}`
+    return `pbkdf2_${PBKDF2_DIGEST}$${PBKDF2_ITERATIONS}$${salt}$${hash}`
   }
 
   const verifyPassword = (password: string, storedHash: string) => {
