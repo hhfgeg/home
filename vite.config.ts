@@ -58,8 +58,17 @@ function devApi() {
   return {
     name: 'dev-api',
     configureServer(server: ViteDevServer) {
+      // 与 build base 保持一致，环境变量优先
+      const APP_BASE = process.env.APP_BASE_URL || '/app/home'
+
       server.middlewares.use(async (req: any, res: any, next: any) => {
-        const url: string = req.url || ''
+        let rawUrl: string = req.url || ''
+        // 如果请求路径带有 base 前缀，剥离后再进行路由匹配，
+        // 使 /app/home/api/… 和 /api/… 都能正确路由
+        let url: string = rawUrl
+        if (APP_BASE !== '/' && rawUrl.startsWith(APP_BASE)) {
+          url = rawUrl.slice(APP_BASE.length) || '/'
+        }
         const method = req.method || 'GET'
         const dataDir = path.resolve(process.cwd(), 'data')
 

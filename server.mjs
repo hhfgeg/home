@@ -13,6 +13,17 @@ const DIST_DIR = path.join(__dirname, 'dist');
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FALLBACK_SLUG = 'yunzhongshu';
 
+// 与 Vite build base 保持一致：优先环境变量 APP_BASE_URL，否则默认 /app/home
+const APP_BASE = (process.env.APP_BASE_URL || '/app/home').replace(/\/+$/, '');
+
+/** 剥离 base 前缀后的路径，使 /app/home/api/… 和 /api/… 都能正确路由 */
+function stripBase(url) {
+  if (APP_BASE !== '/' && url.startsWith(APP_BASE)) {
+    return url.slice(APP_BASE.length) || '/';
+  }
+  return url;
+}
+
 // ---- Token 签名密钥（生产环境可通过环境变量覆盖） ----
 const TOKEN_SECRET = process.env.TOKEN_SECRET || crypto.randomBytes(32).toString('hex');
 const TOKEN_TTL = 24 * 60 * 60 * 1000; // 24 小时
@@ -465,7 +476,9 @@ async function handleAdminSignaturesDelete(req, res, slug, id) {
 //  请求路由
 // ================================================================
 const server = http.createServer((req, res) => {
-  const url = req.url || '/';
+  const rawUrl = req.url || '/';
+  // 剥离 base 前缀，使 /app/home/api/… 和 /api/… 都能正确路由
+  const url = stripBase(rawUrl);
   const method = req.method || 'GET';
 
   // ---- 空间创建 ----

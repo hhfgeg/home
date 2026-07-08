@@ -3,6 +3,10 @@
 # ============================================================
 FROM node:20-alpine AS builder
 
+# 构建时可通过 --build-arg 覆盖 base 路径
+ARG APP_BASE_URL=/app/home
+ENV APP_BASE_URL=${APP_BASE_URL}
+
 WORKDIR /app
 
 # 利用 Docker 缓存：先安装依赖
@@ -33,5 +37,6 @@ RUN mkdir -p /app/data
 EXPOSE 8080
 
 ENV PORT=8080
+ENV APP_BASE_URL=/app/home
 
 CMD ["node", "server.mjs"]
