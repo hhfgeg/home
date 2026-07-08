@@ -24,6 +24,8 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
 COPY server.mjs .
+COPY --from=builder /app/src/spaceSeed.mjs ./src/spaceSeed.mjs
+COPY --from=builder /app/src/cryptoUtils.mjs ./src/cryptoUtils.mjs
 
 # 运行时数据目录（启动时由 server.mjs 按需初始化）
 RUN mkdir -p /app/data
