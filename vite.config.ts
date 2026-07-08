@@ -276,6 +276,7 @@ function devApi() {
 }
 
 export default defineConfig({
+  base: process.env.APP_BASE_URL || '/',
   plugins: [react(), devApi()],
   build: { target: 'esnext', chunkSizeWarningLimit: 1600 },
 })
