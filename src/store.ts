@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { apiUrl } from './api'
 
 export type Signature = {
   id: string
@@ -96,7 +97,7 @@ export const useStore = create<State>((set) => ({
   loadSignatures: async (slug) => {
     set({ loading: true })
     try {
-      const res = await fetch(`/api/signatures/${slug}`)
+      const res = await fetch(apiUrl(`/api/signatures/${slug}`))
       const arr: Signature[] = await res.json()
       set({ signatures: arr.map(withImg), loading: false })
     } catch {
@@ -105,7 +106,7 @@ export const useStore = create<State>((set) => ({
   },
   addSignature: async (slug, s) => {
     try {
-      const res = await fetch(`/api/signatures/${slug}`, {
+      const res = await fetch(apiUrl(`/api/signatures/${slug}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(s),
@@ -142,12 +143,12 @@ export const useStore = create<State>((set) => ({
 
   checkAuthStatus: async (slug) => {
     try {
-      const res = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`)
+      const res = await fetch(apiUrl(`/api/auth/status?slug=${encodeURIComponent(slug)}`))
       const data = await res.json()
       const persisted = loadPersistedAuth()
 
       if (persisted && data.configured) {
-        const verifyRes = await fetch(`/api/auth/status?slug=${encodeURIComponent(slug)}`, {
+        const verifyRes = await fetch(apiUrl(`/api/auth/status?slug=${encodeURIComponent(slug)}`), {
           headers: { Authorization: `Bearer ${persisted.token}` },
         })
         const verifyData = await verifyRes.json()
@@ -171,7 +172,7 @@ export const useStore = create<State>((set) => ({
   },
 
   setupPassword: async (slug, password) => {
-    const res = await fetch('/api/auth/setup', {
+    const res = await fetch(apiUrl('/api/auth/setup'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ slug, password }),
@@ -199,7 +200,7 @@ export const useStore = create<State>((set) => ({
   },
 
   login: async (username, password) => {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(apiUrl('/api/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),

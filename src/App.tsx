@@ -4,6 +4,7 @@ import Scene from './three/Scene'
 import { loadSpace, DEFAULT_SLUG, type SpaceData, spaceDisplayName } from './data'
 import type { Card } from './data'
 import { useStore } from './store'
+import { apiUrl } from './api'
 import LoginModal from './components/LoginModal'
 import AdminPanel from './components/AdminPanel'
 import SpaceClaimModal from './components/SpaceClaimModal'
@@ -34,7 +35,7 @@ function SpacePage() {
     }
     let cancelled = false
     setLoading(true)
-    fetch(`/api/space/${slug}`)
+    fetch(apiUrl(`/api/space/${slug}`))
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: SpaceData & { items: Card[] }) => {
         if (!cancelled) { setSpace(data); setLoading(false) }
@@ -59,7 +60,7 @@ function SpacePage() {
   const reloadSpace = () => {
     const builtin = loadSpace(slug)
     if (builtin) { setSpace(builtin); return }
-    fetch(`/api/space/${slug}`)
+    fetch(apiUrl(`/api/space/${slug}`))
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((data: SpaceData & { items: Card[] }) => setSpace(data))
       .catch(() => {})

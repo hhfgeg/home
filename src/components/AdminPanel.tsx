@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../store'
+import { apiUrl } from '../api'
 import type { Card } from '../data'
 
 const PROTECTED_IDS = new Set(['about', 'signature'])
@@ -343,7 +344,7 @@ export default function AdminPanel({
   const loadCards = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/cards/${slug}`, { headers: apiHeaders })
+      const res = await fetch(apiUrl(`/api/admin/cards/${slug}`), { headers: apiHeaders })
       if (res.status === 401) {
         logout()
         onClose()
@@ -369,7 +370,7 @@ export default function AdminPanel({
 
   const handleSave = async (item: any) => {
     try {
-      const res = await fetch(`/api/admin/cards/${slug}`, {
+      const res = await fetch(apiUrl(`/api/admin/cards/${slug}`), {
         method: 'POST',
         headers: apiHeaders,
         body: JSON.stringify(item),
@@ -393,7 +394,7 @@ export default function AdminPanel({
     if (PROTECTED_IDS.has(id)) return
     if (!confirm(`确定要删除作品 "${id}" 吗？此操作不可撤销。`)) return
     try {
-      const res = await fetch(`/api/admin/cards/${slug}/${id}`, {
+      const res = await fetch(apiUrl(`/api/admin/cards/${slug}/${id}`), {
         method: 'DELETE',
         headers: apiHeaders,
       })
@@ -669,7 +670,7 @@ function AboutEditor({
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch(`/api/admin/cards/${slug}`, {
+      const res = await fetch(apiUrl(`/api/admin/cards/${slug}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -798,7 +799,7 @@ function SignatureManager({
   const loadSigs = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/admin/signatures/${slug}`, {
+      const res = await fetch(apiUrl(`/api/admin/signatures/${slug}`), {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (res.ok) setSigs(await res.json())
@@ -812,7 +813,7 @@ function SignatureManager({
     if (!confirm('确定删除这条签名？')) return
     setDeleting(id)
     try {
-      const res = await fetch(`/api/admin/signatures/${slug}/${id}`, {
+      const res = await fetch(apiUrl(`/api/admin/signatures/${slug}/${id}`), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -895,7 +896,7 @@ function SpaceSettingsEditor({
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/space/${slug}`)
+    fetch(apiUrl(`/api/space/${slug}`))
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: any) => {
         setForm({
@@ -918,7 +919,7 @@ function SpaceSettingsEditor({
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await fetch(`/api/space/${slug}`, {
+      const res = await fetch(apiUrl(`/api/space/${slug}`), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({

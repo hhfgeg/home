@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { normalizeSlug, validateSlug } from '../slug'
+import { apiUrl } from '../api'
 
 interface SpaceClaimModalProps {
   onClose: () => void
@@ -40,7 +41,7 @@ export default function SpaceClaimModal({ onClose, onClaimed, accent = '#22e3ff'
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/space/new', {
+      const res = await fetch(apiUrl('/api/space/new'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug: id, name: name.trim() || undefined, password: password || undefined }),
