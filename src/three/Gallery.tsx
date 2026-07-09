@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import * as THREE from 'three'
 import { Glow } from './effects'
+import { assetUrl } from '../api'
 import DetailView from './DetailView'
 import { useStore, type Signature } from '../store'
 import { CARD_W, CARD_H, galleryRadius, type Card } from '../data'
@@ -413,7 +414,7 @@ function useCardFace(item: Card, signatures: Signature[]) {
       im.crossOrigin = 'anonymous'
       im.onload = () => build(im)
       im.onerror = () => build()
-      im.src = item.poster
+      im.src = assetUrl(item.poster)
     } else if (item.kind === 'signature') {
       // 加载已有签名图片，将签名墙预览渲染到卡片面（初始旋转态即可见）
       const loads = signatures.map(

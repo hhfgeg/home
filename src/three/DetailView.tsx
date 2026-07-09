@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Html } from '@react-three/drei'
 import { useStore } from '../store'
 import { type Card } from '../data'
+import { assetUrl } from '../api'
 import SignatureWall from './SignatureWall'
 
 function BackBtn() {
@@ -92,7 +93,7 @@ function WorkDetail({ item }: { item: Extract<Card, { kind: 'work' }> }) {
       {item.video && (
         <video
           src={item.video}
-          poster={item.poster}
+          poster={assetUrl(item.poster)}
           controls
           autoPlay
           loop

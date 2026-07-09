@@ -4,13 +4,19 @@
  *
  * 示例：
  *   apiUrl('/api/space/yunzhongshu')
+ *   assetUrl('/assets/work1.jpg')
  *   // → '/app/home/api/space/yunzhongshu'  或  '/api/space/yunzhongshu'（取决于 base 配置）
  */
 
 const BASE = import.meta.env.BASE_URL === '/' ? '' : import.meta.env.BASE_URL.replace(/\/+$/, '')
 
-/** 为相对 API 路径添加 base 前缀 */
+/** 为 API 路径添加 base 前缀 */
 export function apiUrl(path: string): string {
+  return `${BASE}${path}`
+}
+
+/** 为静态资源路径添加 base 前缀（public/assets 下的图片等） */
+export function assetUrl(path: string): string {
   return `${BASE}${path}`
 }
 
