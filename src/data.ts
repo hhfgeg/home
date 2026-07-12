@@ -107,3 +107,13 @@ export function listSpaces(): string[] {
 export function loadSpace(slug: string): SpaceData | null {
   return spaces[slug] ?? null
 }
+
+/**
+ * 根据卡片列表解析 URL `?focus=` 参数。
+ * 若 param 对应存在的卡片 id 则返回该 id，否则返回 null。
+ * 纯函数，不依赖路由上下文，方便单独测试。
+ */
+export function resolveFocusItem(items: Card[], param: string | null): string | null {
+  if (!param) return null
+  return items.some((i) => i.id === param) ? param : null
+}

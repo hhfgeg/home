@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useState, useRef } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import Scene from './three/Scene'
-import { loadSpace, DEFAULT_SLUG, type SpaceData, spaceDisplayName } from './data'
+import { loadSpace, DEFAULT_SLUG, resolveFocusItem, type SpaceData, spaceDisplayName } from './data'
 import type { Card } from './data'
 import { useStore } from './store'
 import { apiUrl } from './api'
@@ -25,6 +25,44 @@ function SpacePage() {
   const adminSlug = useStore((s) => s.adminSlug)
   const setClaimGuide = useStore((s) => s.setClaimGuide)
   const completeClaim = useStore((s) => s.completeClaim)
+  const focusedId = useStore((s) => s.focusedId)
+  const setFocused = useStore((s) => s.setFocused)
+
+  // ---- URL `?focus=` 参数双向同步 ----
+  const [searchParams, setSearchParams] = useSearchParams()
+  // 抑制标志：当 effect ① 从 URL 同步聚焦时，告知 effect ② 跳过反向同步
+  const suppressUrlSync = useRef(false)
+
+  // ① URL / 空间变化时 → 同步聚焦状态（初始加载 + 浏览器前进/后退）
+  useEffect(() => {
+    if (!space) return
+    const resolved = resolveFocusItem(space.items, searchParams.get('focus'))
+    if (focusedId !== resolved) {
+      // 标记为 URL 驱动的变更，防止 effect ② 反向覆盖 URL
+      suppressUrlSync.current = true
+      setFocused(resolved)
+    }
+  }, [space, slug, searchParams])
+
+  // ② 用户交互改变聚焦 → 同步到 URL（replace 不产生浏览器历史）
+  useEffect(() => {
+    // 若本次 focusedId 变更是 effect ① 触发的，跳过反向同步
+    if (suppressUrlSync.current) {
+      suppressUrlSync.current = false
+      return
+    }
+    if (!space) return
+    const focusParam = searchParams.get('focus') || null
+    if (focusedId !== focusParam) {
+      const next = new URLSearchParams(searchParams)
+      if (focusedId) {
+        next.set('focus', focusedId)
+      } else {
+        next.delete('focus')
+      }
+      setSearchParams(next, { replace: true })
+    }
+  }, [focusedId])
 
   useEffect(() => {
     const builtin = loadSpace(slug)
