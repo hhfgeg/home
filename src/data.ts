@@ -1,6 +1,16 @@
 export type Contact = { label: string; value: string; href: string }
 export type Stat = { k: string; v: string }
 
+/** 软件包下载链接配置，至少填写一个平台后会在作品详情页显示下载入口 */
+export type Downloads = {
+  /** Mac Intel 芯片 */
+  macIntel?: string
+  /** Mac Apple Silicon (M1/M2/M3/M4) */
+  macApple?: string
+  /** Windows */
+  windows?: string
+}
+
 export type Card =
   | {
       kind: 'work'
@@ -15,6 +25,8 @@ export type Card =
       concept: string
       link: string
       video?: string
+      /** 软件包下载链接，任意平台设置了值即显示下载区域 */
+      downloads?: Downloads
     }
   | {
       kind: 'about'

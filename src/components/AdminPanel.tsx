@@ -18,6 +18,7 @@ function CardForm({
 }) {
   const [form, setForm] = useState(() => {
     if (card.kind === 'work') {
+      const d = (card as any).downloads || {}
       return {
         id: (card as any).id || '',
         title: (card as any).title || '',
@@ -30,6 +31,9 @@ function CardForm({
         concept: (card as any).concept || '',
         link: (card as any).link || '',
         video: (card as any).video || '',
+        downloadMacIntel: d.macIntel || '',
+        downloadMacApple: d.macApple || '',
+        downloadWindows: d.windows || '',
       }
     }
     return {}
@@ -60,6 +64,10 @@ function CardForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const downloads: any = {}
+    if (form.downloadMacIntel) downloads.macIntel = form.downloadMacIntel
+    if (form.downloadMacApple) downloads.macApple = form.downloadMacApple
+    if (form.downloadWindows) downloads.windows = form.downloadWindows
     const item: any = {
       kind: 'work',
       id: form.id,
@@ -74,6 +82,7 @@ function CardForm({
       link: form.link,
     }
     if (form.video) item.video = form.video
+    if (Object.keys(downloads).length > 0) item.downloads = downloads
     onSave(item)
   }
 
@@ -266,6 +275,40 @@ function CardForm({
             value={form.video}
             onChange={(e) => handleChange('video', e.target.value)}
             placeholder="https://..."
+          />
+        </div>
+      </div>
+
+      {/* 软件包下载链接 */}
+      <div>
+        <label style={{ ...labelStyle, marginTop: 0 }}>软件包下载（可选，填写后详情页显示下载按钮）</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 6 }}>
+          <div>
+            <label style={{ ...labelStyle, color: '#9fb3c8', fontSize: 8 }}>Mac Intel 芯片</label>
+            <input
+              style={inputStyle()}
+              value={form.downloadMacIntel}
+              onChange={(e) => handleChange('downloadMacIntel', e.target.value)}
+              placeholder="https://...dmg"
+            />
+          </div>
+          <div>
+            <label style={{ ...labelStyle, color: '#9fb3c8', fontSize: 8 }}>Mac Apple Silicon (M1/M2/M3)</label>
+            <input
+              style={inputStyle()}
+              value={form.downloadMacApple}
+              onChange={(e) => handleChange('downloadMacApple', e.target.value)}
+              placeholder="https://...dmg"
+            />
+          </div>
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <label style={{ ...labelStyle, color: '#9fb3c8', fontSize: 8 }}>Windows</label>
+          <input
+            style={inputStyle()}
+            value={form.downloadWindows}
+            onChange={(e) => handleChange('downloadWindows', e.target.value)}
+            placeholder="https://...exe"
           />
         </div>
       </div>

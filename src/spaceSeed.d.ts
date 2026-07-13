@@ -10,6 +10,7 @@ export interface SeedWork {
   intro: string
   concept: string
   link: string
+  downloads?: Record<string, string>
 }
 
 export declare const WORK_SEED: SeedWork[]

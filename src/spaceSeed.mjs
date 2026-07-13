@@ -25,5 +25,6 @@ export const WORK_SEED = Array.from({ length: 6 }, (_, i) => {
     intro: '这是一张占位作品卡片，登录管理后台后即可替换为你的真实作品。',
     concept: '在「关于我 / 作品」中编辑标题、简介、标签与封面图，打造专属空间。',
     link: '',
+    downloads: {},
   }
 })

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Html } from '@react-three/drei'
 import { useStore } from '../store'
-import { type Card } from '../data'
+import { type Card, type Downloads } from '../data'
 import { assetUrl } from '../api'
 import SignatureWall from './SignatureWall'
 
@@ -60,6 +60,70 @@ function Section({ label, accent, children }: { label: string; accent: string; c
   )
 }
 
+/** 平台图标 SVG */
+const PlatformIcons = {
+  mac: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18c-2.5 0-5-1.3-6-3.5.8.5 1.7.8 2.7.8 1.3 0 2.5-.6 3.3-1.5A4 4 0 0 1 5 10a4 4 0 0 0 5.5 3.5A4 4 0 0 1 17 8a4 4 0 0 0-3 1.5 4 4 0 0 1-1-2.5c0-1 .4-2 1-2.7C12.5 5.5 10.5 6 9 7c0 0-1.5-1-3.5-1C3.5 6 2 8 2 10.5 2 16 8.5 20 12 20c1 0 3-.6 4.5-1.5a5.5 5.5 0 0 0-7.5-.5Z" />
+    </svg>
+  ),
+  windows: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12h7.5V4L3 5.5V12Zm0 0v6.5L10.5 20V12H3Zm10.5 0H21v7.5l-7.5-1V12Zm0-8v7.5H21V4l-7.5 0Z" />
+    </svg>
+  ),
+}
+
+/** 判断 downloads 是否有任何链接 */
+function hasDownloads(d?: Downloads): boolean {
+  if (!d) return false
+  return !!(d.macIntel || d.macApple || d.windows)
+}
+
+function DownloadsSection({ downloads, accent }: { downloads: Downloads; accent: string }) {
+  const links: { label: string; url: string; icon: 'mac' | 'windows' }[] = []
+
+  if (downloads.macApple) {
+    links.push({ label: 'macOS (Apple Silicon)', url: downloads.macApple, icon: 'mac' })
+  }
+  if (downloads.macIntel) {
+    links.push({ label: 'macOS (Intel)', url: downloads.macIntel, icon: 'mac' })
+  }
+  if (downloads.windows) {
+    links.push({ label: 'Windows', url: downloads.windows, icon: 'windows' })
+  }
+
+  if (links.length === 0) return null
+
+  return (
+    <div className="mt-5">
+      <div className="font-display text-[10px] tracking-[0.35em] mb-3" style={{ color: accent }}>
+        下载 / DOWNLOAD
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {links.map((l) => (
+          <a
+            key={l.label}
+            href={l.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-full px-4 py-2 font-display text-[11px] tracking-wider transition hover:brightness-125"
+            style={{
+              border: `1px solid ${accent}`,
+              color: accent,
+              boxShadow: `0 0 14px ${accent}33`,
+              background: `linear-gradient(135deg, ${accent}18, ${accent}08)`,
+            }}
+          >
+            {PlatformIcons[l.icon]}
+            {l.label}
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function WorkDetail({ item }: { item: Extract<Card, { kind: 'work' }> }) {
   return (
     <Panel item={item}>
@@ -110,6 +174,10 @@ function WorkDetail({ item }: { item: Extract<Card, { kind: 'work' }> }) {
       <Section label="创作理念 / CONCEPT" accent={item.accent}>
         {item.concept}
       </Section>
+
+      {item.downloads && hasDownloads(item.downloads) && (
+        <DownloadsSection downloads={item.downloads} accent={item.accent} />
+      )}
 
       <a
         href={item.link}
